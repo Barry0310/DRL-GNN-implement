@@ -1,5 +1,4 @@
 from gnn_model import MPNN
-import torch
 
 data = {
     'link_state': [[1., 2., 3.], [4., 5., 6.], [7., 8., 9.]],
