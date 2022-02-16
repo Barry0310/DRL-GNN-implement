@@ -10,3 +10,15 @@ model = MPNN(3, 4)
 output = model(data)
 
 print(output.item())
+
+import networkx as nx
+
+G = nx.Graph()
+
+G.add_node(0)
+G.add_node(1)
+print(G.nodes())
+G.add_edge(0, 1)
+G.add_edge(1, 0)
+print(G.edges())
+print(G.degree[1])

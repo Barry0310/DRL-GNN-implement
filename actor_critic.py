@@ -6,10 +6,10 @@ import torch.optim as optim
 
 
 class Policy(nn.Module):
-    def __init__(self):
+    def __init__(self, feature_size, t, readout_units):
         super(Policy, self).__init__()
-        self.actor = MPNN()
-        self.critic = MPNN()
+        self.actor = MPNN(feature_size=feature_size, t=t, readout_units=readout_units)
+        self.critic = MPNN(feature_size=feature_size, t=t, readout_units=readout_units)
 
     def forward(self, x):
         action_distrib = []
@@ -24,9 +24,13 @@ class Policy(nn.Module):
 
 
 class AC:
-    def __init__(self):
-        self.model = Policy()
-        self.optimizer = optim.Adam(self.model.parameters(), lr=0.0002)
+    def __init__(self, hyper_parameter):
+        self.H = hyper_parameter
+        self.model = Policy(self.H['feature_size'], self.H['t'], self.H['readout_units'])
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.H['lr'])
+        self.gae_gamma = self.H['gae_gamma']
+        self.gae_lambda = self.H['gae_lambda']
+        self.clip_value = self.H['clip_value']
         self.buffer = []
 
     def step(self):
