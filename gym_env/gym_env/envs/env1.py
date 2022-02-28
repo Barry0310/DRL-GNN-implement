@@ -2,11 +2,8 @@ import gym
 import numpy as np
 import networkx as nx
 import random
-from gym import error, spaces, utils
-from random import choice
-import pylab
-import json
-import gc
+import matplotlib.pyplot as plt
+import copy
 
 
 def create_geant2_graph():
@@ -20,6 +17,7 @@ def create_geant2_graph():
 
     return Gbase
 
+
 def create_nsfnet_graph():
     Gbase = nx.Graph()
     Gbase.add_nodes_from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13])
@@ -28,6 +26,7 @@ def create_nsfnet_graph():
          (6, 7), (7, 10), (8, 9), (8, 11), (9, 10), (9, 12), (10, 11), (10, 13), (11, 12)])
 
     return Gbase
+
 
 def create_gbn_graph():
     Gbase = nx.Graph()
@@ -39,7 +38,8 @@ def create_gbn_graph():
 
     return Gbase
 
-def generate_nx_graph(topology):
+
+def generate_graph(topology):
     """
     Generate graphs for training with the same topology.
     """
@@ -50,29 +50,149 @@ def generate_nx_graph(topology):
     else:
         G = create_gbn_graph()
 
-    # nx.draw(G, with_labels=True)
-    # plt.show()
-    # plt.clf()
-
-    # Node id counter
-    incId = 1
-    # Put all distance weights into edge attributes.
+    idx = 0
     for i, j in G.edges():
-        G.get_edge_data(i, j)['edgeId'] = incId
-        G.get_edge_data(i, j)['betweenness'] = 0
-        G.get_edge_data(i, j)['numsp'] = 0  # Indicates the number of shortest paths going through the link
-        # We set the edges capacities to 200
-        G.get_edge_data(i, j)["capacity"] = float(200)
-        G.get_edge_data(i, j)['bw_allocated'] = 0
-        incId = incId + 1
+        G.get_edge_data(i, j)['capacity'] = 200
+        G.get_edge_data(i, j)['utilization'] = 0
+        G.get_edge_data(i, j)['bwAlloc'] = 0
+        idx = idx + 1
 
     return G
 
+
 class Env1(gym.Env):
-    def __init__(self, topology, demand_list):
-        self.graph = generate_nx_graph(topology)
-        self.demand_list = demand_list
+    def __init__(self):
+        self.edges_dict = None  # 對應link及link編號
+        self.neighbor_edges = None  # 紀錄臨邊資訊供gnn使用
+        self._graph = None
+        self._demand_list = None
+        self._demand_routing = None  # 紀錄demand路由路徑方便step更新
+        self._num_edges = None
+        self._ordered_edges = None
+        self._graph_state = None  # DRL stata
+        self._shortest_path = None  # 儲存所有node pair的最短路
+        self._demand_idx = 0
+        self._last_max_util = None  # 紀錄上一步最大利用率方便下一步計算reward
+        self._done = None  # 是否完成episode
+
+    def _max_link_util(self):
+        max_util = 0
+        for i in self._graph.edges():
+            if self._graph.get_edge_data(*i)['utilization'] > max_util:
+                max_util = self._graph.get_edge_data(*i)['utilization']
+        return max_util
+
+    def mark_action(self, action):
+        marked = copy.deepcopy(self._graph_state)
+        if action == -1:
+            return marked
+        demand = self._demand_list[self._demand_idx]
+        temp = self._shortest_path[demand[0]][action]
+        for i in range(len(temp) - 1):
+            marked[self.edges_dict[(temp[i], temp[i+1])]][2] = demand[2]
+        temp = self._shortest_path[action][demand[1]]
+        for i in range(len(temp) - 1):
+            marked[self.edges_dict[(temp[i], temp[i + 1])]][2] = demand[2]
+        return marked
 
     def seed(self, seed):
         random.seed(seed)
         np.random.seed(seed)
+
+    def step(self, action):
+        if action != -1:
+            demand = self._demand_list[self._demand_idx]
+            temp = self._shortest_path[demand[0]][action]
+            for i in range(len(temp) - 1):
+                self._graph[temp[i]][temp[i + 1]]['bwAlloc'] += demand[2]
+                self._graph[temp[i]][temp[i + 1]]['utilization'] = self._graph[temp[i]][temp[i + 1]]['bwAlloc'] \
+                                                                   / self._graph[temp[i]][temp[i + 1]]['capacity']
+                self._graph_state[self.edges_dict[(temp[i], temp[i + 1])]][1] = self._graph[temp[i]][temp[i + 1]]['utilization']
+
+            temp = self._shortest_path[action][demand[1]]
+            for i in range(len(temp) - 1):
+                self._graph[temp[i]][temp[i + 1]]['bwAlloc'] += demand[2]
+                self._graph[temp[i]][temp[i + 1]]['utilization'] = self._graph[temp[i]][temp[i + 1]]['bwAlloc'] \
+                                                                   / self._graph[temp[i]][temp[i + 1]]['capacity']
+                self._graph_state[self.edges_dict[(temp[i], temp[i + 1])]][1] = self._graph[temp[i]][temp[i + 1]]['utilization']
+
+            temp = self._demand_routing[demand]
+            for i in range(len(temp) - 1):
+                self._graph[temp[i]][temp[i + 1]]['bwAlloc'] -= demand[2]
+                self._graph[temp[i]][temp[i + 1]]['utilization'] = self._graph[temp[i]][temp[i + 1]]['bwAlloc'] \
+                                                                   / self._graph[temp[i]][temp[i + 1]]['capacity']
+                self._graph_state[self.edges_dict[(temp[i], temp[i + 1])]][1] = self._graph[temp[i]][temp[i + 1]]['utilization']
+            self._demand_routing[demand] = self._shortest_path[demand[0]][action][0:-1] + \
+                                           self._shortest_path[action][demand[1]]
+
+        max_util = self._max_link_util()
+        reward = self._last_max_util - max_util
+        self._last_max_util = max_util
+
+        self._demand_idx = self._demand_idx + 1
+        if self._demand_idx == len(self._demand_list):
+            self._done = True
+            demand = None
+        else:
+            self._done = False
+            demand = self._demand_list[self._demand_idx]
+
+        return self._graph_state, self._done, demand, reward
+
+    def reset(self, topology, demand_list):
+        self._graph = generate_graph(topology)
+        self._demand_list = demand_list
+        self._num_edges = len(self._graph.edges())
+        self._ordered_edges = sorted([edge for edge in self._graph.edges()])
+        self.edges_dict = dict()
+        self._graph_state = np.zeros((self._num_edges, 3))
+        self._last_max_util = 0
+
+        idx = 0
+        for n1, n2 in self._ordered_edges:
+            self.edges_dict[(n1, n2)] = idx
+            self.edges_dict[(n2, n1)] = idx
+            self._graph_state[idx][0] = self._graph.get_edge_data(n1, n2)['capacity']
+            self._graph_state[idx][1] = self._graph.get_edge_data(n1, n2)['utilization']
+            idx = idx + 1
+
+        self.neighbor_edges = dict()
+        for n1, n2 in self._ordered_edges:
+            self.neighbor_edges[(n1, n2)] = list()
+            for m, n in list(self._graph.edges(n1)) + list(self._graph.edges(n2)):
+                if (n1 != m or n2 != n) and (n1 != n or n2 != m):
+                    self.neighbor_edges[(n1, n2)].append((m, n))
+
+        self._shortest_path = dict(nx.all_pairs_shortest_path(self._graph))
+        self.action_space = dict()
+        for i in self._graph.edges():
+            self.action_space[self.edges_dict[i]] = [-1]
+            for k in self._graph.nodes():
+                if k == i[0] or k == i[1]:
+                    continue
+                if i[1] not in self._shortest_path[i[0]][k] or i[0] not in self._shortest_path[k][i[1]]:
+                    self.action_space[self.edges_dict[i]].append(k)
+
+        self._demand_routing = dict()
+        for i in self._demand_list:
+            temp = self._shortest_path[i[0]][i[1]]
+            for j in range(len(temp) - 1):
+                self._graph[temp[j]][temp[j - 1]]['bwAlloc'] += i[2]
+                self._graph[temp[j]][temp[j - 1]]['utilization'] = self._graph[temp[j]][temp[j - 1]]['bwAlloc'] \
+                                                                   / self._graph[temp[j]][temp[j - 1]]['capacity']
+                self._graph_state[self.edges_dict[(temp[j], temp[j - 1])]][1] \
+                    = self._graph[temp[j]][temp[j - 1]]['utilization']
+            self._demand_routing[i] = self._shortest_path[i[0]][i[1]]
+        self._last_max_util = self._max_link_util()
+
+        return self._graph_state, self._demand_list[self._demand_idx]
+
+    def render(self, mode="human"):
+        if mode == 'human':
+            pos = nx.spring_layout(self._graph)
+            edge_labels = nx.get_edge_attributes(self._graph, 'capacity')
+            nx.draw(self._graph, pos, with_labels=True)
+            nx.draw_networkx_edge_labels(self._graph, pos, edge_labels=edge_labels)
+            plt.show()
+            plt.clf()
+
