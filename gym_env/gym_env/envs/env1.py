@@ -137,7 +137,7 @@ class Env1(gym.Env):
             self._done = False
             demand = self._demand_list[self._demand_idx]
 
-        return self._graph_state, self._done, demand, reward
+        return copy.deepcopy(self._graph_state), self._done, demand, reward
 
     def reset(self, topology, demand_list):
         self._graph = generate_graph(topology)
@@ -185,7 +185,7 @@ class Env1(gym.Env):
             self._demand_routing[i] = self._shortest_path[i[0]][i[1]]
         self._last_max_util = self._max_link_util()
 
-        return self._graph_state, self._demand_list[self._demand_idx]
+        return copy.deepcopy(self._graph_state), self._demand_list[self._demand_idx]
 
     def render(self, mode="human"):
         if mode == 'human':
