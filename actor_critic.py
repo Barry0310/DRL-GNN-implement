@@ -5,45 +5,59 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 
-class Policy(nn.Module):
-    def __init__(self, feature_size, t, readout_units):
-        super(Policy, self).__init__()
-        self.actor = MPNN(feature_size=feature_size, t=t, readout_units=readout_units)
-        self.critic = MPNN(feature_size=feature_size, t=t, readout_units=readout_units)
+class Actor(nn.Module):
+    def __init__(self, feature_size, t, readout_units, lr):
+        super(Actor, self).__init__()
+        self.model = MPNN(feature_size=feature_size, t=t, readout_units=readout_units)
+        self.optim = optim.Adam(self.model.parameters(), lr=lr)
 
     def forward(self, x):
         action_distrib = []
+        for action in x:
+            action_distrib.append(self.model(action))
+
+        return action_distrib
+
+
+class Critic(nn.Module):
+    def __init__(self, feature_size, t, readout_units, lr):
+        super(Critic, self).__init__()
+        self.model = MPNN(feature_size=feature_size, t=t, readout_units=readout_units)
+        self.optim = optim.Adam(self.model.parameters(), lr=lr)
+
+    def forward(self, x):
         critic_value = []
         for action in x:
-            action_distrib.append(self.actor(action))
-            critic_value.append(self.critic(action))
+            critic_value.append(self.model(action))
 
-        action_prob = F.softmax(torch.stack(action_distrib))
-
-        return action_prob, critic_value
+        return critic_value
 
 
 class AC:
     def __init__(self, hyper_parameter):
-        self.H = hyper_parameter
-        self.model = Policy(self.H['feature_size'], self.H['t'], self.H['readout_units'])
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.H['lr'])
-        self.gae_gamma = self.H['gae_gamma']
-        self.gae_lambda = self.H['gae_lambda']
-        self.clip_value = self.H['clip_value']
+        H = hyper_parameter
+        self.actor = Actor(feature_size=H['feature_size'], t=H['t'], readout_units=H['readout_units'], lr=H['lr'])
+        self.critic = Critic(feature_size=H['feature_size'], t=H['t'], readout_units=H['readout_units'], lr=H['lr'])
+        self.episode = H['episode']
+        self.gae_gamma = H['gae_gamma']
+        self.gae_lambda = H['gae_lambda']
+        self.clip_value = H['clip_value']
         self.buffer = []
 
-    def step(self):
-        pass
+    def pred_actor_distrib(self, action_list):
+        actor_distrib = self.actor(action_list)
+        return torch.tensor(actor_distrib)
 
-    def choose_action(self):
-        pass
+    def pred_critic_value(self, action_list):
+        critic_value = self.critic(action_list)
+        return torch.tensor(critic_value)
 
-    def store_results(self):
-        pass
+    def choose_action(self, action_distrib):
+        action_prob = F.softmax(action_distrib)
+        return torch.argmax(action_prob).item()
 
-    def apply_policy(self):
-        pass
+    def store_result(self, actor_distrib, critic_value, action, demand, done, reward):
+        self.buffer.append((actor_distrib, critic_value, action, demand, done, reward))
 
     def compute_gae(self):
         pass
@@ -54,5 +68,5 @@ class AC:
     def compute_critic_loss(self):
         pass
 
-    def compute_gradients(self):
+    def gradients(self):
         pass

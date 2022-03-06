@@ -31,10 +31,12 @@ class MPNN(nn.Module):
         for _ in range(self.t):
             tmp = torch.gather(state, 0, pair)
             neighbor = torch.stack([torch.cat((i, j), 0) for i, j in zip(tmp[::2], tmp[1::2])])
-            m = self.message(neighbor)
+
+            m = self.message(neighbor.float())
 
             m = torch.zeros(state.shape, dtype=m.dtype).scatter_add_(0, index, m)
-            state = self.update(m, state)
+
+            state = self.update(m, state.float())
 
         feature = torch.sum(state, 0)
         output = self.readout(feature)
@@ -42,7 +44,7 @@ class MPNN(nn.Module):
         return output
 
 
-'''
+"""
 
 link_state:
     link_capacity: float
@@ -54,4 +56,4 @@ input:
     link_state
     pair: [0, 1] => [[0, 0], [1, 1]]
 
-'''
+"""

@@ -62,17 +62,17 @@ def generate_graph(topology):
 
 class Env1(gym.Env):
     def __init__(self):
-        self.edges_dict = None  # 對應link及link編號
-        self.neighbor_edges = None  # 紀錄臨邊資訊供gnn使用
+        self.edges_dict = None  # 對應 link 及 link 編號
+        self.neighbor_edges = None  # 紀錄臨邊資訊供 gnn 使用
         self._graph = None
         self._demand_list = None
-        self._demand_routing = None  # 紀錄demand路由路徑方便step更新
+        self._demand_routing = None  # 紀錄 demand 路由路徑方便 step 更新
         self._num_edges = None
         self._ordered_edges = None
         self._graph_state = None  # DRL stata
-        self._shortest_path = None  # 儲存所有node pair的最短路
-        self._demand_idx = 0
-        self._last_max_util = None  # 紀錄上一步最大利用率方便下一步計算reward
+        self._shortest_path = None  # 儲存所有 node pair的最短路
+        self._demand_idx = 0  # 目前待處理的 demand
+        self._last_max_util = None  # 紀錄上一步最大利用率方便下一步計算 reward
         self._done = None  # 是否完成episode
 
     def _max_link_util(self):
@@ -122,8 +122,7 @@ class Env1(gym.Env):
                 self._graph[temp[i]][temp[i + 1]]['utilization'] = self._graph[temp[i]][temp[i + 1]]['bwAlloc'] \
                                                                    / self._graph[temp[i]][temp[i + 1]]['capacity']
                 self._graph_state[self.edges_dict[(temp[i], temp[i + 1])]][1] = self._graph[temp[i]][temp[i + 1]]['utilization']
-            self._demand_routing[demand] = self._shortest_path[demand[0]][action][0:-1] + \
-                                           self._shortest_path[action][demand[1]]
+            self._demand_routing[demand] = self._shortest_path[demand[0]][action][0:-1] + self._shortest_path[action][demand[1]]
 
         max_util = self._max_link_util()
         reward = self._last_max_util - max_util
@@ -187,7 +186,7 @@ class Env1(gym.Env):
 
         return copy.deepcopy(self._graph_state), self._demand_list[self._demand_idx]
 
-    def render(self, mode="human"):
+    def render(self, mode='human'):
         if mode == 'human':
             pos = nx.spring_layout(self._graph)
             edge_labels = nx.get_edge_attributes(self._graph, 'capacity')
