@@ -76,6 +76,9 @@ class Env1(gym.Env):
         self._done = None  # 是否完成episode
 
     def _max_link_util(self):
+        """
+        find link have maximum link utilization
+        """
         max_util = 0
         for i in self._graph.edges():
             if self._graph.get_edge_data(*i)['utilization'] > max_util:
@@ -83,6 +86,9 @@ class Env1(gym.Env):
         return max_util
 
     def mark_action(self, action):
+         """
+        mark action on links the path have
+        """
         marked = copy.deepcopy(self._graph_state)
         if action == -1:
             return marked
@@ -197,4 +203,3 @@ class Env1(gym.Env):
             nx.draw_networkx_edge_labels(self._graph, pos, edge_labels=edge_labels)
             plt.show()
             plt.clf()
-

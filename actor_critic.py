@@ -37,10 +37,17 @@ class AC:
         return torch.tensor(actor_distrib), critic_value
 
     def choose_action(self, action_distrib):
-        action_prob = F.softmax(action_distrib)
-        return torch.argmax(action_prob).item()
+        """
+        according to the probability of each action choose action
+        """
+        action_prob = F.softmax(action_distrib, dim=0)
+        pa = np.array(action_prob)
+        return np.random.choice(np.arange(len(pa)), size=1, p=pa)[0]
 
     def store_result(self, actor_distrib=None, critic_value=None, action=None, demand=None, done=None, reward=None):
+        """
+        replay buffer
+        """
         self.buffer.append((actor_distrib, critic_value, action, demand, done, reward))
 
     def _data_to_list(self):
