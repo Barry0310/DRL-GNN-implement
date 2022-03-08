@@ -71,7 +71,7 @@ class Env1(gym.Env):
         self._ordered_edges = None
         self._graph_state = None  # DRL stata
         self._shortest_path = None  # 儲存所有 node pair的最短路
-        self._demand_idx = 0  # 目前待處理的 demand
+        self._demand_idx = None  # 目前待處理的 demand
         self._last_max_util = None  # 紀錄上一步最大利用率方便下一步計算 reward
         self._done = None  # 是否完成episode
 
@@ -100,8 +100,9 @@ class Env1(gym.Env):
         np.random.seed(seed)
 
     def step(self, action):
-        if action != -1:
+        if action != 0:
             demand = self._demand_list[self._demand_idx]
+            action = self.action_space[self.edges_dict[(demand[0], demand[1])]][action]
             temp = self._shortest_path[demand[0]][action]
             for i in range(len(temp) - 1):
                 self._graph[temp[i]][temp[i + 1]]['bwAlloc'] += demand[2]
@@ -141,11 +142,13 @@ class Env1(gym.Env):
     def reset(self, topology, demand_list):
         self._graph = generate_graph(topology)
         self._demand_list = demand_list
+        self._demand_idx = 0
         self._num_edges = len(self._graph.edges())
         self._ordered_edges = sorted([edge for edge in self._graph.edges()])
         self.edges_dict = dict()
         self._graph_state = np.zeros((self._num_edges, 3))
         self._last_max_util = 0
+        self._done = False
 
         idx = 0
         for n1, n2 in self._ordered_edges:
