@@ -37,20 +37,24 @@ def train(env, agent):
     """
     for e in range(agent.episode):
         done = False
-        state, demand = env.reset(topology=0, demand_list=[(0, 2, 100)])
-        agent.buffer = []
+        state, demand = env.reset(topology=0, demand_list=[(0, 2, 100)])  # Line 3
+        agent.buffer_clear()
         while not done:
             actor_input, critic_input = input_transform(env, demand, state)
-            act_dist, c_val = agent.predict(actor_input, critic_input)
-            a = agent.choose_action(act_dist)
-            next_state, done, next_demand, reward = env.step(a)
-            agent.store_result(act_dist, c_val, a, demand, done, reward)
+            act_dist, c_val = agent.predict(actor_input, critic_input)  # Line 5, 6
+            a, pa = agent.choose_action(act_dist)  # Line 7
+            next_state, done, next_demand, reward = env.step(a)  # Line 8
+            agent.store_result(pa, c_val, a, demand, done, reward)  # Line 9
             state = next_state
             demand = next_demand
         _, critic_input = input_transform(env, demand, state)
-        _, c_val = agent.predict([], critic_input)
+        _, c_val = agent.predict([], critic_input)  # Line 10
         agent.store_result(critic_value=c_val)
-        print(agent.compute_gae())
+        advantages, returns, action_probs, c_vals = agent.compute_gae()  # Line 11
+        actor_loss = agent.compute_actor_loss(advantages, action_probs)  # Line 12
+        critic_loss = agent.compute_critic_loss(returns, c_vals)  # Line 13
+        total_loss = actor_loss + critic_loss  # Line 14
+        agent.compute_gradients(total_loss)  # Line 15, 16, 17
 
 
 if __name__ == '__main__':

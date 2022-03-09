@@ -86,7 +86,7 @@ class Env1(gym.Env):
         return max_util
 
     def mark_action(self, action):
-         """
+        """
         mark action on links the path have
         """
         marked = copy.deepcopy(self._graph_state)
