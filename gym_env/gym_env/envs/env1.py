@@ -75,6 +75,19 @@ class Env1(gym.Env):
         self._last_max_util = None  # 紀錄上一步最大利用率方便下一步計算 reward
         self._done = None  # 是否完成episode
 
+    def _generate_traffic(self):
+        """
+        generate traffic matrix
+        """
+        demand_list = []
+        for node1 in self._graph.nodes():
+            for node2 in self._graph.nodes():
+                if node1 != node2:
+                    demand = np.random.uniform(0, 50, 1)[0]
+                    demand_list.append((node1, node2, demand))
+
+        return demand_list
+
     def _max_link_util(self):
         """
         find link have maximum link utilization
@@ -108,7 +121,7 @@ class Env1(gym.Env):
     def step(self, action):
         if action != 0:
             demand = self._demand_list[self._demand_idx]
-            action = self.action_space[self.edges_dict[(demand[0], demand[1])]][action]
+            action = self.action_space[(demand[0], demand[1])][action]
             temp = self._shortest_path[demand[0]][action]
             for i in range(len(temp) - 1):
                 self._graph[temp[i]][temp[i + 1]]['bwAlloc'] += demand[2]
@@ -117,18 +130,18 @@ class Env1(gym.Env):
                 self._graph_state[self.edges_dict[(temp[i], temp[i + 1])]][1] = self._graph[temp[i]][temp[i + 1]]['utilization']
 
             temp = self._shortest_path[action][demand[1]]
-            for i in range(len(temp) - 1):
-                self._graph[temp[i]][temp[i + 1]]['bwAlloc'] += demand[2]
-                self._graph[temp[i]][temp[i + 1]]['utilization'] = self._graph[temp[i]][temp[i + 1]]['bwAlloc'] \
-                                                                   / self._graph[temp[i]][temp[i + 1]]['capacity']
-                self._graph_state[self.edges_dict[(temp[i], temp[i + 1])]][1] = self._graph[temp[i]][temp[i + 1]]['utilization']
+            for i in range(len(temp)-1):
+                self._graph[temp[i]][temp[i+1]]['bwAlloc'] += demand[2]
+                self._graph[temp[i]][temp[i+1]]['utilization'] = self._graph[temp[i]][temp[i+1]]['bwAlloc'] \
+                                                                   / self._graph[temp[i]][temp[i+1]]['capacity']
+                self._graph_state[self.edges_dict[(temp[i], temp[i+1])]][1] = self._graph[temp[i]][temp[i+1]]['utilization']
 
             temp = self._demand_routing[demand]
             for i in range(len(temp) - 1):
-                self._graph[temp[i]][temp[i + 1]]['bwAlloc'] -= demand[2]
-                self._graph[temp[i]][temp[i + 1]]['utilization'] = self._graph[temp[i]][temp[i + 1]]['bwAlloc'] \
+                self._graph[temp[i]][temp[i+1]]['bwAlloc'] -= demand[2]
+                self._graph[temp[i]][temp[i+1]]['utilization'] = self._graph[temp[i]][temp[i+1]]['bwAlloc'] \
                                                                    / self._graph[temp[i]][temp[i + 1]]['capacity']
-                self._graph_state[self.edges_dict[(temp[i], temp[i + 1])]][1] = self._graph[temp[i]][temp[i + 1]]['utilization']
+                self._graph_state[self.edges_dict[(temp[i], temp[i+1])]][1] = self._graph[temp[i]][temp[i+1]]['utilization']
             self._demand_routing[demand] = self._shortest_path[demand[0]][action][0:-1] + self._shortest_path[action][demand[1]]
 
         max_util = self._max_link_util()
@@ -145,7 +158,7 @@ class Env1(gym.Env):
 
         return copy.deepcopy(self._graph_state), self._done, demand, reward
 
-    def reset(self, topology, demand_list):
+    def reset(self, topology, demand_list=None):
         self._graph = generate_graph(topology)
         self._demand_list = demand_list
         self._demand_idx = 0
@@ -155,6 +168,9 @@ class Env1(gym.Env):
         self._graph_state = np.zeros((self._num_edges, 3))
         self._last_max_util = 0
         self._done = False
+
+        if self._demand_list == None:
+            self._demand_list = self._generate_traffic()
 
         idx = 0
         for n1, n2 in self._ordered_edges:
@@ -173,23 +189,24 @@ class Env1(gym.Env):
 
         self._shortest_path = dict(nx.all_pairs_shortest_path(self._graph))
         self.action_space = dict()
-        for i in self._graph.edges():
-            self.action_space[self.edges_dict[i]] = [-1]
-            for k in self._graph.nodes():
-                if k == i[0] or k == i[1]:
-                    continue
-                if i[1] not in self._shortest_path[i[0]][k] or i[0] not in self._shortest_path[k][i[1]]:
-                    self.action_space[self.edges_dict[i]].append(k)
+        for i in self._graph.nodes():
+            for j in self._graph.nodes():
+                self.action_space[(i, j)] = [-1]
+                for k in self._graph.nodes():
+                    if k == i or k == j:
+                        continue
+                    if j not in self._shortest_path[i][k] or i not in self._shortest_path[k][j]:
+                        self.action_space[(i, j)].append(k)
 
         self._demand_routing = dict()
         for i in self._demand_list:
             temp = self._shortest_path[i[0]][i[1]]
             for j in range(len(temp) - 1):
-                self._graph[temp[j]][temp[j - 1]]['bwAlloc'] += i[2]
-                self._graph[temp[j]][temp[j - 1]]['utilization'] = self._graph[temp[j]][temp[j - 1]]['bwAlloc'] \
-                                                                   / self._graph[temp[j]][temp[j - 1]]['capacity']
-                self._graph_state[self.edges_dict[(temp[j], temp[j - 1])]][1] \
-                    = self._graph[temp[j]][temp[j - 1]]['utilization']
+                self._graph[temp[j]][temp[j+1]]['bwAlloc'] += i[2]
+                self._graph[temp[j]][temp[j+1]]['utilization'] = self._graph[temp[j]][temp[j+1]]['bwAlloc'] \
+                                                                   / self._graph[temp[j]][temp[j+1]]['capacity']
+                self._graph_state[self.edges_dict[(temp[j], temp[j+1])]][1] \
+                    = self._graph[temp[j]][temp[j+1]]['utilization']
             self._demand_routing[i] = self._shortest_path[i[0]][i[1]]
         self._last_max_util = self._max_link_util()
 

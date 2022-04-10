@@ -94,6 +94,7 @@ class AC:
         return loss
 
     def compute_gradients(self, loss):
+        print('update weight')
         self.optimizer.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_value_(self.model.parameters(), clip_value=self.clip_value)
