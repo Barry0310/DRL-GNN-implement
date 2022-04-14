@@ -52,7 +52,7 @@ def generate_graph(topology):
 
     idx = 0
     for i, j in G.edges():
-        G.get_edge_data(i, j)['capacity'] = 200
+        G.get_edge_data(i, j)['capacity'] = 1000
         G.get_edge_data(i, j)['utilization'] = 0
         G.get_edge_data(i, j)['bwAlloc'] = 0
         idx = idx + 1
@@ -72,7 +72,7 @@ class Env1(gym.Env):
         self._graph_state = None  # DRL stata
         self._shortest_path = None  # 儲存所有 node pair的最短路
         self._demand_idx = None  # 目前待處理的 demand
-        self._last_max_util = None  # 紀錄上一步最大利用率方便下一步計算 reward
+        self.max_util = None  # 紀錄上一步最大利用率方便下一步計算 reward
         self._done = None  # 是否完成episode
 
     def _generate_traffic(self):
@@ -83,7 +83,7 @@ class Env1(gym.Env):
         for node1 in self._graph.nodes():
             for node2 in self._graph.nodes():
                 if node1 != node2:
-                    demand = np.random.uniform(0, 50, 1)[0]
+                    demand = np.random.uniform(0, 20, 1)[0]
                     demand_list.append((node1, node2, demand))
 
         return demand_list
@@ -123,17 +123,17 @@ class Env1(gym.Env):
             demand = self._demand_list[self._demand_idx]
             action = self.action_space[(demand[0], demand[1])][action]
             temp = self._shortest_path[demand[0]][action]
-            for i in range(len(temp) - 1):
-                self._graph[temp[i]][temp[i + 1]]['bwAlloc'] += demand[2]
-                self._graph[temp[i]][temp[i + 1]]['utilization'] = self._graph[temp[i]][temp[i + 1]]['bwAlloc'] \
-                                                                   / self._graph[temp[i]][temp[i + 1]]['capacity']
-                self._graph_state[self.edges_dict[(temp[i], temp[i + 1])]][1] = self._graph[temp[i]][temp[i + 1]]['utilization']
+            for i in range(len(temp)-1):
+                self._graph[temp[i]][temp[i+1]]['bwAlloc'] += demand[2]
+                self._graph[temp[i]][temp[i+1]]['utilization'] = self._graph[temp[i]][temp[i + 1]]['bwAlloc'] \
+                                                                / self._graph[temp[i]][temp[i + 1]]['capacity']
+                self._graph_state[self.edges_dict[(temp[i], temp[i+1])]][1] = self._graph[temp[i]][temp[i + 1]]['utilization']
 
             temp = self._shortest_path[action][demand[1]]
             for i in range(len(temp)-1):
                 self._graph[temp[i]][temp[i+1]]['bwAlloc'] += demand[2]
                 self._graph[temp[i]][temp[i+1]]['utilization'] = self._graph[temp[i]][temp[i+1]]['bwAlloc'] \
-                                                                   / self._graph[temp[i]][temp[i+1]]['capacity']
+                                                                / self._graph[temp[i]][temp[i+1]]['capacity']
                 self._graph_state[self.edges_dict[(temp[i], temp[i+1])]][1] = self._graph[temp[i]][temp[i+1]]['utilization']
 
             temp = self._demand_routing[demand]
@@ -145,8 +145,8 @@ class Env1(gym.Env):
             self._demand_routing[demand] = self._shortest_path[demand[0]][action][0:-1] + self._shortest_path[action][demand[1]]
 
         max_util = self._max_link_util()
-        reward = self._last_max_util - max_util
-        self._last_max_util = max_util
+        reward = self.max_util - max_util
+        self.max_util = max_util
 
         self._demand_idx = self._demand_idx + 1
         if self._demand_idx == len(self._demand_list):
@@ -166,17 +166,18 @@ class Env1(gym.Env):
         self._ordered_edges = sorted([edge for edge in self._graph.edges()])
         self.edges_dict = dict()
         self._graph_state = np.zeros((self._num_edges, 3))
-        self._last_max_util = 0
+        self.max_util = 0
         self._done = False
 
         if self._demand_list == None:
             self._demand_list = self._generate_traffic()
+        self._demand_list = sorted(self._demand_list, key=lambda x: x[2], reverse=True)
 
         idx = 0
         for n1, n2 in self._ordered_edges:
             self.edges_dict[(n1, n2)] = idx
             self.edges_dict[(n2, n1)] = idx
-            self._graph_state[idx][0] = self._graph.get_edge_data(n1, n2)['capacity']
+            self._graph_state[idx][0] = self._graph.get_edge_data(n1, n2)['capacity'] / self._graph.get_edge_data(n1, n2)['capacity']
             self._graph_state[idx][1] = self._graph.get_edge_data(n1, n2)['utilization']
             idx = idx + 1
 
@@ -208,7 +209,7 @@ class Env1(gym.Env):
                 self._graph_state[self.edges_dict[(temp[j], temp[j+1])]][1] \
                     = self._graph[temp[j]][temp[j+1]]['utilization']
             self._demand_routing[i] = self._shortest_path[i[0]][i[1]]
-        self._last_max_util = self._max_link_util()
+        self.max_util = self._max_link_util()
 
         return copy.deepcopy(self._graph_state), self._demand_list[self._demand_idx]
 

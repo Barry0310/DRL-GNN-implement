@@ -27,11 +27,9 @@ class MPNN(nn.Module):
         state = torch.tensor(x['link_state'])
         pair = torch.tensor(x['pair'])
         index = torch.stack([i for i in pair[::2]])
-
         for _ in range(self.t):
             tmp = torch.gather(state, 0, pair)
             neighbor = torch.stack([torch.cat((i, j), 0) for i, j in zip(tmp[::2], tmp[1::2])])
-
             m = self.message(neighbor.float())
 
             m = torch.zeros(state.shape, dtype=m.dtype).scatter_add_(0, index, m)
