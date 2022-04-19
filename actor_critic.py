@@ -29,7 +29,7 @@ class AC:
         H = hyper_parameter
         self.model = Policy(feature_size=H['feature_size'], t=H['t'], readout_units=H['readout_units'])
         self.optimizer = optim.Adam(self.model.parameters(), lr=H['lr'])
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_rate'], gamma=['lr_decay_step'])
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_rate'], gamma=H['lr_decay_step'])
         self.episode = H['episode']
         self.gae_gamma = H['gae_gamma']
         self.gae_lambda = H['gae_lambda']
@@ -85,7 +85,7 @@ class AC:
         action_probs = []
         for i in self.buffer:
             if i[-1] is not None:
-                rewards.append(i[-1])
+                rewards.append(i[-1].astype('float32'))
             c_vals.append(i[1])
             if i[-2] is not None:
                 done.append(not i[-2])
@@ -95,11 +95,31 @@ class AC:
         c_vals = torch.cat(c_vals)
         action_probs = torch.cat(action_probs)
         entropy = torch.Tensor(entropy).sum()
+
         return rewards, c_vals, done, action_probs, entropy
 
     def compute_gae(self):
         rewards, c_vals, done, action_probs, entropy = self._data_to_list()
-        size = len(rewards)
+        #size = len(rewards)
+
+        returns = []
+        R = 0
+        for r in reversed(rewards):
+            R = r + R * self.gae_gamma
+            returns.insert(0, R)
+        returns = torch.tensor(returns, dtype=torch.float32)
+
+        advantages = []
+        A = 0
+        next_value = 0
+        for r, v in zip(reversed(rewards), reversed(c_vals[1:])):
+            td_error = r + next_value * self.gae_gamma - v
+            A = td_error + A * self.gae_gamma * self.gae_lambda
+            next_value = v
+            advantages.insert(0, A)
+        advantages = torch.tensor(advantages, dtype=torch.float32)
+
+        """
         advantages = [0] * (size + 1)
 
         for i in reversed(range(size)):
@@ -107,6 +127,7 @@ class AC:
             advantages[i] = delta + (self.gae_gamma * self.gae_lambda * advantages[i+1] * done[i])
         advantages = torch.tensor(advantages[:size])
         returns = advantages + c_vals[:-1]
+        """
         self.buffer_clear()
         advantages = (advantages - advantages.mean()) / advantages.std()
         returns = (returns - returns.mean()) / returns.std()
@@ -114,12 +135,12 @@ class AC:
         return advantages, returns, action_probs, c_vals[1:], entropy
 
     def compute_actor_loss(self, advantages, action_probs):
-        loss = - (advantages.detach() * torch.log(action_probs)).sum()
+        loss = - (advantages * torch.log(action_probs)).sum()
         print('actor loss:', loss)
         return loss
 
     def compute_critic_loss(self, returns, c_vals):
-        loss = F.mse_loss(returns.detach(), c_vals).sum()
+        loss = F.smooth_l1_loss(returns, c_vals).sum()
         print('critic loss:', loss)
         return loss
 

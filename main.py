@@ -1,6 +1,7 @@
 from actor_critic import AC
 import gym
 import gym_env
+from torch.utils.tensorboard import SummaryWriter
 
 
 def input_transform(env, demand, state):
@@ -35,17 +36,16 @@ def train(env, agent):
     """
     train loop
     """
+    writer = SummaryWriter('./runs/1')
     for e in range(agent.episode):
         print('#episode', e+1)
         done = False
         state, demand = env.reset(topology=2)  # Line 3
         print('max link utilization:', env.max_util)
         while not done:
-            #print('Demand', demand)
             actor_input, critic_input = input_transform(env, demand, state)
             act_dist, c_val = agent.predict(actor_input, critic_input)  # Line 5, 6
             a, pa = agent.choose_action(act_dist)  # Line 7
-            #print('Choose action', env.action_space[(demand[0], demand[1])][a])
             next_state, done, next_demand, reward = env.step(a)  # Line 8
             agent.store_result(pa, c_val, a, demand, done, reward)  # Line 9
             state = next_state
@@ -58,8 +58,10 @@ def train(env, agent):
         critic_loss = agent.compute_critic_loss(returns, c_vals)  # Line 13
         total_loss = actor_loss + critic_loss - entropy  # Line 14 m
         agent.compute_gradients(total_loss)  # Line 15, 16, 17
+        writer.add_scalar('loss', total_loss.item(), e + 1)
         print('max link utilization:', env.max_util)
     print('Training finish')
+    writer.close()
 
 
 if __name__ == '__main__':
@@ -69,7 +71,7 @@ if __name__ == '__main__':
         'feature_size': 20,
         't': 5,
         'readout_units': 20,
-        'episode': 100,
+        'episode': 200,
         'lr': 0.0002,
         'lr_decay_rate': 0.96,
         'lr_decay_step': 60,

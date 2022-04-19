@@ -83,7 +83,7 @@ class Env1(gym.Env):
         for node1 in self._graph.nodes():
             for node2 in self._graph.nodes():
                 if node1 != node2:
-                    demand = np.random.uniform(0, 20, 1)[0]
+                    demand = np.random.uniform(0, 30, 1)[0]
                     demand_list.append((node1, node2, demand))
 
         return demand_list
@@ -177,7 +177,7 @@ class Env1(gym.Env):
         for n1, n2 in self._ordered_edges:
             self.edges_dict[(n1, n2)] = idx
             self.edges_dict[(n2, n1)] = idx
-            self._graph_state[idx][0] = self._graph.get_edge_data(n1, n2)['capacity'] / self._graph.get_edge_data(n1, n2)['capacity']
+            self._graph_state[idx][0] = self._graph.get_edge_data(n1, n2)['capacity'] #/ self._graph.get_edge_data(n1, n2)['capacity']
             self._graph_state[idx][1] = self._graph.get_edge_data(n1, n2)['utilization']
             idx = idx + 1
 
