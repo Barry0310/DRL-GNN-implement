@@ -29,7 +29,7 @@ class AC:
         H = hyper_parameter
         self.model = Policy(feature_size=H['feature_size'], t=H['t'], readout_units=H['readout_units'])
         self.optimizer = optim.Adam(self.model.parameters(), lr=H['lr'])
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_rate'], gamma=H['lr_decay_step'])
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_step'], gamma=H['lr_decay_rate'])
         self.episode = H['episode']
         self.gae_gamma = H['gae_gamma']
         self.gae_lambda = H['gae_lambda']
@@ -100,7 +100,6 @@ class AC:
 
     def compute_gae(self):
         rewards, c_vals, done, action_probs, entropy = self._data_to_list()
-        #size = len(rewards)
 
         returns = []
         R = 0
@@ -119,15 +118,6 @@ class AC:
             advantages.insert(0, A)
         advantages = torch.tensor(advantages, dtype=torch.float32)
 
-        """
-        advantages = [0] * (size + 1)
-
-        for i in reversed(range(size)):
-            delta = rewards[i] + (self.gae_gamma * c_vals[i+1] * done[i]) - c_vals[i]
-            advantages[i] = delta + (self.gae_gamma * self.gae_lambda * advantages[i+1] * done[i])
-        advantages = torch.tensor(advantages[:size])
-        returns = advantages + c_vals[:-1]
-        """
         self.buffer_clear()
         advantages = (advantages - advantages.mean()) / advantages.std()
         returns = (returns - returns.mean()) / returns.std()
