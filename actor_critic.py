@@ -28,7 +28,7 @@ class AC:
     def __init__(self, hyper_parameter):
         H = hyper_parameter
         self.model = Policy(feature_size=H['feature_size'], t=H['t'], readout_units=H['readout_units'])
-        self.optimizer = optim.Adam(self.model.parameters(), lr=H['lr'])
+        self.optimizer = optim.Adam(self.model.parameters(), lr=H['lr'], weight_decay=0.0001)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_step'], gamma=H['lr_decay_rate'])
         self.episode = H['episode']
         self.gae_gamma = H['gae_gamma']

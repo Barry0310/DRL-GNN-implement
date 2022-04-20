@@ -36,7 +36,7 @@ def train(env, agent):
     """
     train loop
     """
-    writer = SummaryWriter('./runs/1')
+    writer = SummaryWriter('./runs/2')
     for e in range(agent.episode):
         print('#episode', e+1)
         done = False
