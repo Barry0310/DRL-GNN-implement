@@ -28,7 +28,7 @@ class AC:
     def __init__(self, hyper_parameter):
         H = hyper_parameter
         self.model = Policy(feature_size=H['feature_size'], t=H['t'], readout_units=H['readout_units'])
-        self.optimizer = optim.Adam(self.model.parameters(), lr=H['lr'], weight_decay=0.0001)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=H['lr'], weight_decay=H['l2 regular'])
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_step'], gamma=H['lr_decay_rate'])
         self.episode = H['episode']
         self.gae_gamma = H['gae_gamma']
@@ -125,12 +125,12 @@ class AC:
         return advantages, returns, action_probs, c_vals[1:], entropy
 
     def compute_actor_loss(self, advantages, action_probs):
-        loss = - (advantages * torch.log(action_probs)).sum()
+        loss = - (advantages.detach() * torch.log(action_probs)).sum()
         print('actor loss:', loss)
         return loss
 
     def compute_critic_loss(self, returns, c_vals):
-        loss = F.smooth_l1_loss(returns, c_vals).sum()
+        loss = F.mse_loss(returns.detach(), c_vals).sum()
         print('critic loss:', loss)
         return loss
 

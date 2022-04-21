@@ -56,7 +56,7 @@ def train(env, agent):
         advantages, returns, action_probs, c_vals, entropy = agent.compute_gae()  # Line 11
         actor_loss = agent.compute_actor_loss(advantages, action_probs)  # Line 12
         critic_loss = agent.compute_critic_loss(returns, c_vals)  # Line 13
-        total_loss = actor_loss + critic_loss - entropy  # Line 14 m
+        total_loss = actor_loss + critic_loss - entropy  # Line 14
         agent.compute_gradients(total_loss)  # Line 15, 16, 17
         writer.add_scalar('loss', total_loss.item(), e + 1)
         print('max link utilization:', env.max_util)
@@ -79,7 +79,8 @@ if __name__ == '__main__':
         'gae_gamma': 0.99,
         'gae_lambda': 0.95,
         'clip_value': 0.5,
-        'entropy_beta': 0.01
+        'entropy_beta': 0.01,
+        'l2 regular': 0.0001
     }
     AC_policy = AC(hyper_parameter)
     train(env_training, AC_policy)
