@@ -1,41 +1,17 @@
-from actor_critic import AC
+import torch.nn.init
+
+from actor_critic import PPOAC
 import gym
-import gym_env
+import gym_graph
 from torch.utils.tensorboard import SummaryWriter
+import random
+import numpy as np
+import os
 
 
-def input_transform(env, demand, state):
-    """
-    mark actions of demand on current state individually
-    """
-    neighbor_edges = env.neighbor_edges
-    edges_dict = env_training.edges_dict
-    pair = []
-    for i in neighbor_edges:
-        for j in neighbor_edges[i]:
-            pair.append([edges_dict[i]] * 20)
-            pair.append([edges_dict[j]] * 20)
-    actor_data = []
-    if demand:
-        for i in env.action_space[(demand[0], demand[1])]:
-            actor_data.append(
-                {
-                    'link_state': env.mark_action(i),
-                    'pair': pair
-                }
-            )
-    critic_data = {
-        'link_state': state,
-        'pair': pair
-    }
-
-    return actor_data, critic_data
-
-
+"""
 def train(env, agent):
-    """
-    train loop
-    """
+
     writer = SummaryWriter('./runs/2')
     for e in range(agent.episode):
         print('#episode', e+1)
@@ -62,25 +38,134 @@ def train(env, agent):
         print('max link utilization:', env.max_util)
     print('Training finish')
     writer.close()
+"""
+
 
 
 if __name__ == '__main__':
-    ENV_NAME = 'GraphEnv-v1'
-    env_training = gym.make(ENV_NAME)
+
+    if not os.path.exists("./Logs"):
+        os.makedirs("./Logs")
+
+    if not os.path.exists("./tmp"):
+        os.makedirs("./tmp")
+
+    SEED = 9
+    os.environ['PYTHONHASHSEED'] = str(SEED)
+    np.random.seed(SEED)
+    random.seed(SEED)
+    torch.manual_seed(1)
+    experiment_letter = "_B_NEW"
+    take_critic_demands = True  # True if we want to take the demands from the most critical links, True if we want to take the largest
+    percentage_demands = 15  # Percentage of demands that will be used in the optimization
+    str_perctg_demands = str(percentage_demands)
+    percentage_demands /= 100
+
+    max_iters = 150
+    EVALUATION_EPISODES = 20  # As the demand selection is deterministic, it doesn't make sense to evaluate multiple times over the same TM
+    PPO_EPOCHS = 8
+    num_samples_top1 = int(np.ceil(percentage_demands * 380)) * 5
+    num_samples_top2 = int(np.ceil(percentage_demands * 506)) * 4
+    num_samples_top3 = int(np.ceil(percentage_demands * 272)) * 6
+
+    BUFF_SIZE = num_samples_top1 + num_samples_top2 + num_samples_top3
+
+    differentiation_str = "Enero_3top_" + str_perctg_demands + experiment_letter
+    checkpoint_dir = "./models" + differentiation_str
+
+    if not os.path.exists(checkpoint_dir):
+        os.makedirs(checkpoint_dir)
+
+    fileLogs = open("./Logs/exp" + differentiation_str + "Logs.txt", "a")
+
+    ENV_NAME = 'GraphEnv-v16'
+
+    training_tm_ids = set(range(100))
+
     hyper_parameter = {
         'feature_size': 20,
         't': 5,
         'readout_units': 20,
-        'episode': 200,
+        'episode': 20,
         'lr': 0.0002,
         'lr_decay_rate': 0.96,
         'lr_decay_step': 60,
-        'mini_batch': 60,
+        'mini_batch': 55,
         'gae_gamma': 0.99,
         'gae_lambda': 0.95,
         'clip_value': 0.5,
         'entropy_beta': 0.01,
-        'l2 regular': 0.0001
+        'entropy_step': 60,
+        'l2_regular': 0.0001
     }
-    AC_policy = AC(hyper_parameter)
-    train(env_training, AC_policy)
+
+    dataset_root_folder = "../Enero_datasets/dataset_sing_top/data/results_my_3_tops_unif_05-1/"
+    dataset_folder_name1 = "NEW_BtAsiaPac"
+    dataset_folder_name2 = "NEW_Garr199905"
+    dataset_folder_name3 = "NEW_Goodnet"
+
+    dataset_folder_name1 = dataset_root_folder + dataset_folder_name1
+    dataset_folder_name2 = dataset_root_folder + dataset_folder_name2
+    dataset_folder_name3 = dataset_root_folder + dataset_folder_name3
+
+    env_training1 = gym.make(ENV_NAME)
+    env_training1.seed(SEED)
+    env_training1.generate_environment(dataset_folder_name1 + "/TRAIN", "BtAsiaPac", 0, 100, percentage_demands)
+    env_training1.top_K_critical_demands = take_critic_demands
+
+    env_training2 = gym.make(ENV_NAME)
+    env_training2.seed(SEED)
+    env_training2.generate_environment(dataset_folder_name2 + "/TRAIN", "Garr199905", 0, 100, percentage_demands)
+    env_training2.top_K_critical_demands = take_critic_demands
+
+    env_training3 = gym.make(ENV_NAME)
+    env_training2.seed(SEED)
+    env_training2.generate_environment(dataset_folder_name3 + "/TRAIN", "Goodnet", 0, 100, percentage_demands)
+    env_training2.top_K_critical_demands = take_critic_demands
+
+    env_eval = gym.make(ENV_NAME)
+    env_eval.seed(SEED)
+    env_eval.generate_environment(dataset_folder_name1 + "/EVALUATE", "BtAsiaPac", 0, 100, percentage_demands)
+    env_eval.top_K_critical_demands = take_critic_demands
+
+    env_eval2 = gym.make(ENV_NAME)
+    env_eval.seed(SEED)
+    env_eval.generate_environment(dataset_folder_name2 + "/EVALUATE", "Garr199905", 0, 100, percentage_demands)
+    env_eval.top_K_critical_demands = take_critic_demands
+
+    env_eval3 = gym.make(ENV_NAME)
+    env_eval.seed(SEED)
+    env_eval.generate_environment(dataset_folder_name3 + "/EVALUATE", "Goodnet", 0, 100, percentage_demands)
+    env_eval.top_K_critical_demands = take_critic_demands
+
+    AC_policy = PPOAC(hyper_parameter)
+    for iters in range(150):
+        for e in range(hyper_parameter['episode']):
+
+            print(f"Episode {iters*hyper_parameter['episode']+e}")
+
+            states = []
+            critic_features = []
+            tensors = []
+            actions = []
+            values = []
+            masks = []
+            rewards = []
+            actions_probs = []
+
+            number_samples_reached = False
+            tm_id = random.sample(training_tm_ids, 1)[0]
+
+            # topo 1
+            while not number_samples_reached:
+                demand, src, dst = env_training1.reset(tm_id=tm_id)
+                while True:
+                    action_dist, tensor = AC_policy.predict(env_training1, src, dst)
+
+                    critic_features = AC_policy.critic_get_graph_features(env_training1)
+                    value = AC_policy.critic(critic_features)
+                    print(value)
+                    input()
+
+
+

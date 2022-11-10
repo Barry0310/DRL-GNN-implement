@@ -1,61 +1,113 @@
 import numpy as np
 import torch
-import torch.nn as nn
-from gnn_model import MPNN
+from Actor import Actor
+from Critic import Critic
 import torch.nn.functional as F
 import torch.optim as optim
 import torch.distributions as distributions
 
 
-class Policy(nn.Module):
-    def __init__(self, feature_size, t, readout_units):
-        super(Policy, self).__init__()
-        self.actor = MPNN(feature_size=feature_size, t=t, readout_units=readout_units)
-        self.critic = MPNN(feature_size=feature_size, t=t, readout_units=readout_units)
-
-    def forward(self, x):
-        action_distribs = None
-        if len(x[0]):
-            action_distribs = self.actor(x[0][0])
-            for action in x[0][1:]:
-                action_distribs = torch.cat((action_distribs, self.actor(action)), dim=0)
-
-        critic_value = self.critic(x[1])
-        return action_distribs, critic_value
-
-
-class AC:
+class PPOAC:
     def __init__(self, hyper_parameter):
         H = hyper_parameter
-        self.model = Policy(feature_size=H['feature_size'], t=H['t'], readout_units=H['readout_units'])
-        self.optimizer = optim.Adam(self.model.parameters(), lr=H['lr'], weight_decay=H['l2 regular'])
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_step'], gamma=H['lr_decay_rate'])
-        self.episode = H['episode']
         self.gae_gamma = H['gae_gamma']
         self.gae_lambda = H['gae_lambda']
         self.clip_value = H['clip_value']
         self.mini_batch = H['mini_batch']
         self.feature_size = H['feature_size']
         self.entropy_beta = H['entropy_beta']
+        self.actor = Actor(feature_size=self.feature_size, t=H['t'], readout_units=H['readout_units'])
+        self.critic = Critic(feature_size=self.feature_size, t=H['t'], readout_units=H['readout_units'])
+        self.optimizer = optim.Adam(list(self.actor.parameters())+list(self.critic.parameters()), lr=H['lr'], eps=1e-5)
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_step'], gamma=H['lr_decay_rate'])
+
         self.buffer = []
 
-    def _expand_dim(self, actor_input, critic_input):
-        temp = [0] * (self.feature_size - 3)
-        for i in actor_input:
-            x = np.zeros((len(i['link_state']), self.feature_size))
-            for j in range(len(i['link_state'])):
-                x[j] = np.concatenate((i['link_state'][j], np.array(temp)))
-            i['link_state'] = x
-        y = np.zeros((len(critic_input['link_state']), self.feature_size))
-        for i in range(len(critic_input['link_state'])):
-            y[i] = np.concatenate((critic_input['link_state'][i], np.array(temp)))
-        critic_input['link_state'] = y
-        return actor_input, critic_input
+    def old_cummax(self, alist, extractor):
+        maxes = [np.amax(extractor(v)) + 1 for v in alist]
+        cummaxes = [np.zeros_like(maxes[0])]
+        for i in range(len(maxes) - 1):
+            cummaxes.append(np.array(np.sum(maxes[0:i + 1])))
+        return cummaxes
 
-    def predict(self, actor_input, critic_input):
-        actor_input, critic_input = self._expand_dim(actor_input, critic_input)
-        actor_distribs, critic_values = self.model((actor_input, critic_input))
-        return actor_distribs, critic_values
+    def predict(self, env, src, dst):
+        list_k_features = []
+
+        middle_point_list = env.src_dst_k_middlepoints[str(src) + ':' + str(dst)]
+        for mid in range(len(middle_point_list)):
+            env.mark_action_sp(src, middle_point_list[mid], src, dst)
+            if middle_point_list[mid] != dst:
+                env.mark_action_sp(middle_point_list[mid], dst, src, dst)
+            features = self.actor_get_graph_features(env)
+            list_k_features.append(features)
+            env.edge_state[:, 2] = 0
+
+        graph_ids = [np.full([list_k_features[it]['link_state'].shape[0]], it) for it in range(len(list_k_features))]
+
+        first_offset = self.old_cummax(list_k_features, lambda v: v['first'])
+        second_offset = self.old_cummax(list_k_features, lambda v: v['second'])
+
+        tensor = ({
+            'graph_id': np.concatenate([v for v in graph_ids], axis=0, dtype='int64'),
+            'link_state': np.concatenate([v['link_state'] for v in list_k_features], axis=0, dtype='float32'),
+            'first': np.concatenate([v['first'] + m for v, m in zip(list_k_features, first_offset)], axis=0,
+                                    dtype='int64'),
+            'second': np.concatenate([v['second'] + m for v, m in zip(list_k_features, second_offset)], axis=0,
+                                     dtype='int64'),
+            'state_dim': self.feature_size,
+            'num_actions': len(middle_point_list),
+        })
+        q_values = self.actor(tensor)
+        q_values = torch.reshape(q_values, (-1, ))
+        soft_max_q_values = torch.nn.Softmax(q_values)
+
+        return soft_max_q_values, tensor
+
+    def actor_get_graph_features(self, env):
+        temp = {
+            'num_edges': env.numEdges,
+            'length': env.firstTrueSize,
+            'capacity': env.link_capacity_feature,
+            'bw_allocated': env.edge_state[:,2],
+            'utilization': np.divide(env.edge_state[:,0], env.edge_state[:, 1]),
+            'first': env.first,
+            'second': env.second
+        }
+
+        temp['utilization'] = np.reshape(temp['utilization'][0:temp['num_edges']], [temp['num_edges'], 1])
+        temp['capacity'] = np.reshape(temp['capacity'][0:temp['num_edges']], [temp['num_edges'], 1])
+        temp['bw_allocated'] = np.reshape(temp['bw_allocated'][0:temp['num_edges']], [temp['num_edges'], 1])
+
+        hidden_states = np.concatenate([temp['utilization'], temp['capacity'], temp['bw_allocated']], axis=1)
+        link_state = np.pad(hidden_states, ((0, 0), (0, self.feature_size - 3)), 'constant', constant_values=(0, ))
+
+        inputs = {'link_state': link_state, 'first': temp['first'][0:temp['length']],
+                  'second': temp['second'][0:temp['length']]}
+
+        return inputs
+
+    def critic_get_graph_features(self, env):
+        temp = {
+            'num_edges': env.numEdges,
+            'length': env.firstTrueSize,
+            'capacity': env.link_capacity_feature,
+            'utilization': np.divide(env.edge_state[:, 0], env.edge_state[:, 1]),
+            'first': env.first,
+            'second': env.second
+        }
+
+        temp['utilization'] = np.reshape(temp['utilization'][0:temp['num_edges']], [temp['num_edges'], 1])
+        temp['capacity'] = np.reshape(temp['capacity'][0:temp['num_edges']], [temp['num_edges'], 1])
+
+        hidden_states = np.concatenate([temp['utilization'], temp['capacity']], axis=1)
+        link_state = np.pad(hidden_states, ((0, 0), (0, self.feature_size - 2)), 'constant', constant_values=(0,))
+
+        inputs = {'link_state': np.array(link_state, dtype='float32'),
+                  'first': np.array(temp['first'][0:temp['length']], dtype='int64'),
+                  'second': np.array(temp['second'][0:temp['length']], dtype='int64'),
+                  'state_dim': self.feature_size}
+
+        return inputs
 
     def choose_action(self, action_distrib):
         """
