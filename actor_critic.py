@@ -4,7 +4,7 @@ from Actor import Actor
 from Critic import Critic
 import torch.nn.functional as F
 import torch.optim as optim
-import torch.distributions as distributions
+import gc
 
 
 class PPOAC:
@@ -83,6 +83,7 @@ class PPOAC:
 
         inputs = {'link_state': link_state, 'first': temp['first'][0:temp['length']],
                   'second': temp['second'][0:temp['length']]}
+        gc.collect()
 
         return inputs
 
@@ -106,28 +107,9 @@ class PPOAC:
                   'first': np.array(temp['first'][0:temp['length']], dtype='int64'),
                   'second': np.array(temp['second'][0:temp['length']], dtype='int64'),
                   'state_dim': self.feature_size}
+        gc.collect()
 
         return inputs
-
-    def choose_action(self, action_distrib):
-        """
-        according to the probability of each action choose action
-        """
-        action_prob = F.softmax(action_distrib, dim=0)
-        pa = distributions.Categorical(action_prob)
-        return pa.sample().item(), action_prob
-
-    def store_result(self, action_prob=None, critic_value=None, action=None, demand=None, done=None, reward=None):
-        """
-        replay buffer
-        """
-        self.buffer.append((action_prob, critic_value, action, demand, done, reward))
-
-    def buffer_clear(self):
-        self.buffer = []
-
-    def buffer_size(self):
-        return len(self.buffer)
 
     def _data_to_list(self):
         rewards = []

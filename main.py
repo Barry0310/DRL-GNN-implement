@@ -3,10 +3,11 @@ import torch.nn.init
 from actor_critic import PPOAC
 import gym
 import gym_graph
-from torch.utils.tensorboard import SummaryWriter
+#from torch.utils.tensorboard import SummaryWriter
 import random
 import numpy as np
 import os
+import gc
 
 
 """
@@ -155,7 +156,7 @@ if __name__ == '__main__':
             actions_probs = []
 
             for topo in range(len(env_training)):
-                print(f"topo {topo}")
+                print(f"topo {topo+1}")
                 number_samples_reached = False
                 while not number_samples_reached:
                     tm_id = random.sample(training_tm_ids, 1)[0]
@@ -186,7 +187,7 @@ if __name__ == '__main__':
                         source = new_src
                         destination = new_dst
 
-                        if len(tensor) == num_samples_top1:
+                        if len(tensors) == num_samples_top1:
                             number_samples_reached = True
                             break
 
