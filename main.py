@@ -69,6 +69,8 @@ if __name__ == '__main__':
     num_samples_top2 = int(np.ceil(percentage_demands * 506)) * 4
     num_samples_top3 = int(np.ceil(percentage_demands * 272)) * 6
 
+    num_samples_top = [num_samples_top1, num_samples_top2, num_samples_top3]
+
     BUFF_SIZE = num_samples_top1 + num_samples_top2 + num_samples_top3
 
     differentiation_str = "Enero_3top_" + str_perctg_demands + experiment_letter
@@ -155,9 +157,12 @@ if __name__ == '__main__':
             rewards = []
             actions_probs = []
 
+            total_num_samples = 0
+
             for topo in range(len(env_training)):
                 print(f"topo {topo+1}")
                 number_samples_reached = False
+                total_num_samples += num_samples_top[topo]
                 while not number_samples_reached:
                     tm_id = random.sample(training_tm_ids, 1)[0]
                     demand, src, dst = env_training[topo].reset(tm_id=tm_id)
@@ -187,12 +192,13 @@ if __name__ == '__main__':
                         source = new_src
                         destination = new_dst
 
-                        if len(tensors) == num_samples_top1:
+                        if len(tensors) == total_num_samples:
                             number_samples_reached = True
                             break
 
                         if done:
                             break
+
 
 
 
