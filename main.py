@@ -123,6 +123,8 @@ if __name__ == '__main__':
     env_training2.generate_environment(dataset_folder_name3 + "/TRAIN", "Goodnet", 0, 100, percentage_demands)
     env_training2.top_K_critical_demands = take_critic_demands
 
+    env_training = [env_training1, env_training2, env_training3]
+
     env_eval = gym.make(ENV_NAME)
     env_eval.seed(SEED)
     env_eval.generate_environment(dataset_folder_name1 + "/EVALUATE", "BtAsiaPac", 0, 100, percentage_demands)
@@ -144,7 +146,6 @@ if __name__ == '__main__':
 
             print(f"Episode {iters*hyper_parameter['episode']+e}")
 
-            states = []
             critic_features = []
             tensors = []
             actions = []
@@ -153,19 +154,45 @@ if __name__ == '__main__':
             rewards = []
             actions_probs = []
 
-            number_samples_reached = False
-            tm_id = random.sample(training_tm_ids, 1)[0]
+            for topo in range(len(env_training)):
+                print(f"topo {topo}")
+                number_samples_reached = False
+                while not number_samples_reached:
+                    tm_id = random.sample(training_tm_ids, 1)[0]
+                    demand, src, dst = env_training[topo].reset(tm_id=tm_id)
+                    while True:
+                        action_dist, tensor = AC_policy.predict(env_training[topo], src, dst)
 
-            # topo 1
-            while not number_samples_reached:
-                demand, src, dst = env_training1.reset(tm_id=tm_id)
-                while True:
-                    action_dist, tensor = AC_policy.predict(env_training1, src, dst)
+                        critic_feature = AC_policy.critic_get_graph_features(env_training[topo])
+                        value = AC_policy.critic(critic_feature)[0]
 
-                    critic_features = AC_policy.critic_get_graph_features(env_training1)
-                    value = AC_policy.critic(critic_features)
-                    print(value)
-                    input()
+                        action = np.random.choice(len(action_dist), p=action_dist.detach().numpy())
+                        action_one_hot = np.eye(len(action_dist))[action]
+                        reward, done, _, new_demand, new_src, new_dst, _, _, _ = env_training[topo].step(action,
+                                                                                                         demand,
+                                                                                                         src,
+                                                                                                         dst)
+                        mask = not done
+
+                        tensors.append(tensor)
+                        critic_features.append(critic_feature)
+                        actions.append(action_one_hot)
+                        values.append(value)
+                        masks.append(mask)
+                        rewards.append(reward)
+                        actions_probs.append(action_dist)
+
+                        demand = new_demand
+                        source = new_src
+                        destination = new_dst
+
+                        if len(tensor) == num_samples_top1:
+                            number_samples_reached = True
+                            break
+
+                        if done:
+                            break
+
 
 
 

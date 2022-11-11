@@ -59,7 +59,7 @@ class PPOAC:
         })
         q_values = self.actor(tensor)
         q_values = torch.reshape(q_values, (-1, ))
-        soft_max_q_values = torch.nn.Softmax(q_values)
+        soft_max_q_values = torch.nn.functional.softmax(q_values, dim=0)
 
         return soft_max_q_values, tensor
 
