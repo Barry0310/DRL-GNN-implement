@@ -122,9 +122,9 @@ if __name__ == '__main__':
     env_training2.top_K_critical_demands = take_critic_demands
 
     env_training3 = gym.make(ENV_NAME)
-    env_training2.seed(SEED)
-    env_training2.generate_environment(dataset_folder_name3 + "/TRAIN", "Goodnet", 0, 100, percentage_demands)
-    env_training2.top_K_critical_demands = take_critic_demands
+    env_training3.seed(SEED)
+    env_training3.generate_environment(dataset_folder_name3 + "/TRAIN", "Goodnet", 0, 100, percentage_demands)
+    env_training3.top_K_critical_demands = take_critic_demands
 
     env_training = [env_training1, env_training2, env_training3]
 
