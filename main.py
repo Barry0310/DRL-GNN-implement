@@ -9,40 +9,6 @@ import numpy as np
 import os
 import gc
 
-
-"""
-def train(env, agent):
-
-    writer = SummaryWriter('./runs/2')
-    for e in range(agent.episode):
-        print('#episode', e+1)
-        done = False
-        state, demand = env.reset(topology=2)  # Line 3
-        print('max link utilization:', env.max_util)
-        while not done:
-            actor_input, critic_input = input_transform(env, demand, state)
-            act_dist, c_val = agent.predict(actor_input, critic_input)  # Line 5, 6
-            a, pa = agent.choose_action(act_dist)  # Line 7
-            next_state, done, next_demand, reward = env.step(a)  # Line 8
-            agent.store_result(pa, c_val, a, demand, done, reward)  # Line 9
-            state = next_state
-            demand = next_demand
-        _, critic_input = input_transform(env, demand, state)
-        _, c_val = agent.predict([], critic_input)  # Line 10
-        agent.store_result(critic_value=c_val)
-        advantages, returns, action_probs, c_vals, entropy = agent.compute_gae()  # Line 11
-        actor_loss = agent.compute_actor_loss(advantages, action_probs)  # Line 12
-        critic_loss = agent.compute_critic_loss(returns, c_vals)  # Line 13
-        total_loss = actor_loss + critic_loss - entropy  # Line 14
-        agent.compute_gradients(total_loss)  # Line 15, 16, 17
-        writer.add_scalar('loss', total_loss.item(), e + 1)
-        print('max link utilization:', env.max_util)
-    print('Training finish')
-    writer.close()
-"""
-
-
-
 if __name__ == '__main__':
 
     if not os.path.exists("./Logs"):
@@ -99,7 +65,9 @@ if __name__ == '__main__':
         'clip_value': 0.5,
         'entropy_beta': 0.01,
         'entropy_step': 60,
-        'l2_regular': 0.0001
+        'l2_regular': 0.0001,
+        'buffer_size': BUFF_SIZE,
+        'update_times': PPO_EPOCHS
     }
 
     dataset_root_folder = "../Enero_datasets/dataset_sing_top/data/results_my_3_tops_unif_05-1/"
@@ -198,6 +166,20 @@ if __name__ == '__main__':
 
                         if done:
                             break
+
+            critic_feature = AC_policy.critic_get_graph_features(env_training[2])
+            value = AC_policy.critic(critic_feature)[0]
+            values.append(value)
+
+            returns, advantages = AC_policy.compute_gae(values, masks, rewards)
+            actor_loss, critic_loss = AC_policy.update(actions, actions_probs, tensors, critic_features, returns,
+                                                       advantages)
+
+            fileLogs.write("a," + str(actor_loss.detach().numpy()) + ",\n")
+            fileLogs.write("c," + str(critic_loss.detach().numpy()) + ",\n")
+            fileLogs.flush()
+
+            gc.collect()
 
 
 

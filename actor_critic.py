@@ -4,6 +4,7 @@ from Actor import Actor
 from Critic import Critic
 import torch.nn.functional as F
 import torch.optim as optim
+from collections import deque
 import gc
 
 
@@ -16,12 +17,15 @@ class PPOAC:
         self.mini_batch = H['mini_batch']
         self.feature_size = H['feature_size']
         self.entropy_beta = H['entropy_beta']
+        self.buffer_size = H['buffer_size']
+        self.update_times = H['update_times']
         self.actor = Actor(feature_size=self.feature_size, t=H['t'], readout_units=H['readout_units'])
         self.critic = Critic(feature_size=self.feature_size, t=H['t'], readout_units=H['readout_units'])
         self.optimizer = optim.Adam(list(self.actor.parameters())+list(self.critic.parameters()), lr=H['lr'], eps=1e-5)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_step'], gamma=H['lr_decay_rate'])
 
-        self.buffer = []
+        self.buffer = deque(maxlen=self.buffer_size)
+        self.buffer_index = np.arange(self.buffer_size)
 
     def old_cummax(self, alist, extractor):
         maxes = [np.amax(extractor(v)) + 1 for v in alist]
@@ -47,7 +51,7 @@ class PPOAC:
         first_offset = self.old_cummax(list_k_features, lambda v: v['first'])
         second_offset = self.old_cummax(list_k_features, lambda v: v['second'])
 
-        tensor = ({
+        tensor = {
             'graph_id': np.concatenate([v for v in graph_ids], axis=0, dtype='int64'),
             'link_state': np.concatenate([v['link_state'] for v in list_k_features], axis=0, dtype='float32'),
             'first': np.concatenate([v['first'] + m for v, m in zip(list_k_features, first_offset)], axis=0,
@@ -56,7 +60,7 @@ class PPOAC:
                                      dtype='int64'),
             'state_dim': self.feature_size,
             'num_actions': len(middle_point_list),
-        })
+        }
         q_values = self.actor(tensor)
         q_values = torch.reshape(q_values, (-1, ))
         soft_max_q_values = torch.nn.functional.softmax(q_values, dim=0)
@@ -111,64 +115,60 @@ class PPOAC:
 
         return inputs
 
-    def _data_to_list(self):
-        rewards = []
-        c_vals = []
-        done = []
-        entropy = []
-        action_probs = []
-        for i in self.buffer:
-            if i[-1] is not None:
-                rewards.append(i[-1].astype('float32'))
-            c_vals.append(i[1])
-            if i[-2] is not None:
-                done.append(not i[-2])
-            if i[0] is not None:
-                action_probs.append(i[0][i[2]:i[2]+1])
-                entropy.append(-(torch.log(i[0])*i[0]).sum() * self.entropy_beta)
-        c_vals = torch.cat(c_vals)
-        action_probs = torch.cat(action_probs)
-        entropy = torch.Tensor(entropy).sum()
-
-        return rewards, c_vals, done, action_probs, entropy
-
-    def compute_gae(self):
-        rewards, c_vals, done, action_probs, entropy = self._data_to_list()
-
+    def compute_gae(self, values, masks, rewards):
         returns = []
-        R = 0
-        for r in reversed(rewards):
-            R = r + R * self.gae_gamma
-            returns.insert(0, R)
-        returns = torch.tensor(returns, dtype=torch.float32)
+        gae = 0
 
-        advantages = []
-        A = 0
-        next_value = 0
-        for r, v in zip(reversed(rewards), reversed(c_vals[1:])):
-            td_error = r + next_value * self.gae_gamma - v
-            A = td_error + A * self.gae_gamma * self.gae_lambda
-            next_value = v
-            advantages.insert(0, A)
-        advantages = torch.tensor(advantages, dtype=torch.float32)
+        for i in reversed(range(len(rewards))):
+            delta = rewards[i] + self.gae_gamma * values[i+1] * masks[i] - values[i]
+            gae = delta + self.gae_gamma * self.gae_lambda * masks[i] * gae
+            returns.insert(0, gae + values[i])
 
-        self.buffer_clear()
-        advantages = (advantages - advantages.mean()) / advantages.std()
-        returns = (returns - returns.mean()) / returns.std()
+        adv = np.array(returns) - values[:-1]
 
-        return advantages, returns, action_probs, c_vals[1:], entropy
+        return returns, (adv - np.mean(adv)) / (np.std(adv) + 1e-10)
 
-    def compute_actor_loss(self, advantages, action_probs):
-        loss = - (advantages.detach() * torch.log(action_probs)).sum()
-        print('actor loss:', loss)
+    def _compute_actor_loss(self, adv, old_act, old_policy_probs, link_state, graph_id,
+                            first, second, state_dim, num_actions):
+        adv = adv.detach()
+        old_policy_probs = old_policy_probs.detach()
+
+        q_values = self.actor({
+            'graph_id': graph_id,
+            'link_state': link_state,
+            'first': first,
+            'second': second,
+            'state_dim': state_dim,
+            'num_actions': num_actions,
+        })
+        q_values = torch.reshape(q_values, (-1,))
+        new_policy_probs = torch.nn.functional.softmax(q_values, dim=0)
+
+        ratio = torch.exp(
+            torch.log(torch.sum(old_act * new_policy_probs)) - torch.log(torch.sum(old_act * old_policy_probs))
+        )
+        surr1 = -ratio*adv
+        surr2 = -torch.clip(ratio, min=1-self.clip_value, max=1+self.clip_value) * adv
+
+        loss = torch.max(surr1, surr2)
+        entropy = -torch.sum(torch.log(new_policy_probs) * new_policy_probs)
+
+        return loss, entropy
+
+    def _compute_critic_loss(self, ret, link_state, first, second, state_dim):
+        ret = ret.detach()
+
+        value = self.critic({
+            'link_state': link_state,
+            'first': first,
+            'second': second,
+            'state_dim': state_dim
+        })[0]
+        loss = F.mse_loss(ret, value)
+
         return loss
 
-    def compute_critic_loss(self, returns, c_vals):
-        loss = F.mse_loss(returns.detach(), c_vals).sum()
-        print('critic loss:', loss)
-        return loss
-
-    def compute_gradients(self, loss):
+    def _compute_gradients(self, loss):
         print('update weight')
         print('loss:', loss)
         self.optimizer.zero_grad()
@@ -176,3 +176,70 @@ class PPOAC:
         torch.nn.utils.clip_grad_value_(self.model.parameters(), clip_value=self.clip_value)
         self.optimizer.step()
         self.scheduler.step()
+
+    def update(self, actions, actions_probs, tensors, critic_features, returns, advantages):
+
+        for pos in range(self.buffer_size):
+            tensor = tensors[pos]
+            critic_feature = critic_features[pos]
+            action = actions[pos]
+            ret = returns[pos]
+            adv = advantages[pos]
+            action_dist = actions_probs[pos]
+
+            update_tensor = {
+                'graph_id': tensor['graph_id'],
+                'link_state': tensor['link_state'],
+                'first': tensor['first'],
+                'second': tensor['second'],
+                'state_dim': tensor['state_dim'],
+                'num_actions': tensor['num_actions'],
+                'link_state_critic': critic_feature['link_state'],
+                'old_act': action,
+                'adv': adv,
+                'old_policy_probs': action_dist,
+                'first_critic': critic_feature['first_critic'],
+                'second_critic': critic_feature['second_critic'],
+                'ret': ret,
+            }
+
+            self.buffer.append(update_tensor)
+
+        for i in range(self.update_times):
+            np.random.shuffle(self.buffer_index)
+            for start in range(0, self.buffer_size, self.mini_batch):
+                end = start + self.mini_batch
+                entropy = 0
+                actor_loss = 0
+                critic_loss = 0
+                for index in self.buffer_index[start:end]:
+                    sample = self.buffer[index]
+
+                    sample_actor_loss, sample_entropy = self._compute_actor_loss(sample['adv'], sample['old_act'],
+                                                                                 sample['old_policy_probs'],
+                                                                                 sample['link_state'],
+                                                                                 sample['graph_id'], sample['first'],
+                                                                                 sample['second'], sample['state_dim'],
+                                                                                 sample['num_actions'])
+                    sample_critic_loss = self._compute_critic_loss(sample['ret'], sample['link_state_critic'],
+                                                                   sample['first_critic'], sample['second_critic'],
+                                                                   sample['state_dim'])
+                    entropy += sample_entropy
+                    actor_loss += sample_actor_loss
+                    critic_loss += sample_critic_loss
+
+                entropy /= self.mini_batch
+                actor_loss = actor_loss / self.mini_batch - self.entropy_beta * entropy
+                critic_loss /= self.mini_batch
+
+                total_loss = actor_loss + critic_loss
+                self.optimizer.zero_grad()
+                total_loss.backward()
+                self.optimizer.step()
+                self.scheduler.step()
+
+        self.buffer.clear()
+        gc.collect()
+        return actor_loss, critic_loss
+
+
