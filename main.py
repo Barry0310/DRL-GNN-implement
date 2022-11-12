@@ -1,9 +1,7 @@
-import torch.nn.init
-
+import torch
 from actor_critic import PPOAC
 import gym
 import gym_graph
-#from torch.utils.tensorboard import SummaryWriter
 import random
 import numpy as np
 import os
@@ -13,9 +11,6 @@ if __name__ == '__main__':
 
     if not os.path.exists("./Logs"):
         os.makedirs("./Logs")
-
-    if not os.path.exists("./tmp"):
-        os.makedirs("./tmp")
 
     SEED = 9
     os.environ['PYTHONHASHSEED'] = str(SEED)
@@ -30,7 +25,7 @@ if __name__ == '__main__':
 
     max_iters = 150
     EVALUATION_EPISODES = 20  # As the demand selection is deterministic, it doesn't make sense to evaluate multiple times over the same TM
-    PPO_EPOCHS = 8
+
     num_samples_top1 = int(np.ceil(percentage_demands * 380)) * 5
     num_samples_top2 = int(np.ceil(percentage_demands * 506)) * 4
     num_samples_top3 = int(np.ceil(percentage_demands * 272)) * 6
@@ -40,12 +35,12 @@ if __name__ == '__main__':
     BUFF_SIZE = num_samples_top1 + num_samples_top2 + num_samples_top3
 
     differentiation_str = "Enero_3top_" + str_perctg_demands + experiment_letter
-    checkpoint_dir = "./models" + differentiation_str
+    model_dir = "./models" + differentiation_str
 
-    if not os.path.exists(checkpoint_dir):
-        os.makedirs(checkpoint_dir)
+    if not os.path.exists(model_dir):
+        os.makedirs(model_dir)
 
-    fileLogs = open("./Logs/exp" + differentiation_str + "Logs.txt", "a")
+    fileLogs = open("./Logs/exp" + differentiation_str + "Logs.txt", "w")
 
     ENV_NAME = 'GraphEnv-v16'
 
@@ -66,8 +61,8 @@ if __name__ == '__main__':
         'entropy_beta': 0.01,
         'entropy_step': 60,
         'l2_regular': 0.0001,
-        'buffer_size': BUFF_SIZE,
-        'update_times': PPO_EPOCHS
+        'buffer_size': num_samples_top1 + num_samples_top2 + num_samples_top3,
+        'update_times': 8
     }
 
     dataset_root_folder = "../Enero_datasets/dataset_sing_top/data/results_my_3_tops_unif_05-1/"
@@ -96,23 +91,30 @@ if __name__ == '__main__':
 
     env_training = [env_training1, env_training2, env_training3]
 
-    env_eval = gym.make(ENV_NAME)
-    env_eval.seed(SEED)
-    env_eval.generate_environment(dataset_folder_name1 + "/EVALUATE", "BtAsiaPac", 0, 100, percentage_demands)
-    env_eval.top_K_critical_demands = take_critic_demands
+    env_eval1 = gym.make(ENV_NAME)
+    env_eval1.seed(SEED)
+    env_eval1.generate_environment(dataset_folder_name1 + "/EVALUATE", "BtAsiaPac", 0, 100, percentage_demands)
+    env_eval1.top_K_critical_demands = take_critic_demands
 
     env_eval2 = gym.make(ENV_NAME)
-    env_eval.seed(SEED)
-    env_eval.generate_environment(dataset_folder_name2 + "/EVALUATE", "Garr199905", 0, 100, percentage_demands)
-    env_eval.top_K_critical_demands = take_critic_demands
+    env_eval2.seed(SEED)
+    env_eval2.generate_environment(dataset_folder_name2 + "/EVALUATE", "Garr199905", 0, 100, percentage_demands)
+    env_eval2.top_K_critical_demands = take_critic_demands
 
     env_eval3 = gym.make(ENV_NAME)
-    env_eval.seed(SEED)
-    env_eval.generate_environment(dataset_folder_name3 + "/EVALUATE", "Goodnet", 0, 100, percentage_demands)
-    env_eval.top_K_critical_demands = take_critic_demands
+    env_eval3.seed(SEED)
+    env_eval3.generate_environment(dataset_folder_name3 + "/EVALUATE", "Goodnet", 0, 100, percentage_demands)
+    env_eval3.top_K_critical_demands = take_critic_demands
 
+    env_eval = [env_eval1, env_eval2, env_eval3]
+
+    counter_store_model = 1
+    max_reward = -1000
     AC_policy = PPOAC(hyper_parameter)
     for iters in range(150):
+
+        if iters * hyper_parameter['episode'] >= hyper_parameter['entropy_step']:
+            hyper_parameter['entropy_step'] = hyper_parameter['entropy_step'] / 10
         for e in range(hyper_parameter['episode']):
 
             print(f"Episode {iters*hyper_parameter['episode']+e}")
@@ -126,6 +128,9 @@ if __name__ == '__main__':
             actions_probs = []
 
             total_num_samples = 0
+
+            AC_policy.actor.train()
+            AC_policy.critic.train()
 
             for topo in range(len(env_training)):
                 print(f"topo {topo+1}")
@@ -178,6 +183,57 @@ if __name__ == '__main__':
             fileLogs.write("a," + str(actor_loss.detach().numpy()) + ",\n")
             fileLogs.write("c," + str(critic_loss.detach().numpy()) + ",\n")
             fileLogs.flush()
+
+            gc.collect()
+
+            rewards_test = np.zeros(EVALUATION_EPISODES * 3)
+            error_links = np.zeros(EVALUATION_EPISODES * 3)
+            max_link_utis = np.zeros(EVALUATION_EPISODES * 3)
+            min_link_utis = np.zeros(EVALUATION_EPISODES * 3)
+            uti_stds = np.zeros(EVALUATION_EPISODES * 3)
+
+            AC_policy.actor.eval()
+            AC_policy.critic.eval()
+
+            for topo in range(len(env_eval)):
+                for tm_id in range(EVALUATION_EPISODES):
+                    demand, src, dst = env_eval[topo].reset(tm_id=tm_id)
+                    total_reward = 0
+                    posi = EVALUATION_EPISODES * topo + tm_id
+                    while True:
+                        action_dist, _ = AC_policy.predict(env_eval[topo], src, dst)
+                        action = torch.argmax(action_dist)
+
+                        reward, done, error_eval_links, demand, src, dst, max_link_uti, min_link_uti, uti_std = \
+                            env_eval[topo].step(action, demand, src, dst)
+
+                        total_reward += reward
+                        if done:
+                            break
+                    rewards_test[posi] = total_reward
+                    error_links[posi] = error_eval_links
+                    max_link_utis[posi] = max_link_uti[2]
+                    min_link_utis[posi] = min_link_uti
+                    uti_stds[posi] = uti_std
+
+            eval_mean_reward = np.mean(rewards_test)
+            fileLogs.write(";," + str(np.mean(uti_stds)) + ",\n")
+            fileLogs.write("+," + str(np.mean(error_links)) + ",\n")
+            fileLogs.write("<," + str(np.amax(max_link_utis)) + ",\n")
+            fileLogs.write(">," + str(np.amax(min_link_utis)) + ",\n")
+            fileLogs.write("ENTR," + str(hyper_parameter['entropy_beta']) + ",\n")
+            fileLogs.write("REW," + str(eval_mean_reward) + ",\n")
+            fileLogs.write("lr," + str(hyper_parameter['lr']) + ",\n")
+
+            if eval_mean_reward > max_reward:
+                max_reward = eval_mean_reward
+                model_id = counter_store_model
+                fileLogs.write("MAX REWD: " + str(max_reward) + " REWD_ID: " + str(model_id) + ",\n")
+
+            fileLogs.flush()
+
+            torch.save(AC_policy.actor.state_dict(), model_dir + '/' + f'actor_{model_id}.pt')
+            torch.save(AC_policy.critic.state_dict(), model_dir + '/' + f'critic_{model_id}.pt')
 
             gc.collect()
     fileLogs.close()
