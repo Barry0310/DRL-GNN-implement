@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
     env_eval = [env_eval1, env_eval2, env_eval3]
 
-    counter_store_model = 1
+    counter_store_model = 0
     max_reward = -1000
     AC_policy = PPOAC(hyper_parameter)
     for iters in range(150):
@@ -227,13 +227,12 @@ if __name__ == '__main__':
 
             if eval_mean_reward > max_reward:
                 max_reward = eval_mean_reward
-                model_id = counter_store_model
-                fileLogs.write("MAX REWD: " + str(max_reward) + " REWD_ID: " + str(model_id) + ",\n")
+                fileLogs.write("MAX REWD: " + str(max_reward) + " REWD_ID: " + str(counter_store_model) + ",\n")
+                torch.save(AC_policy.actor.state_dict(), model_dir + '/' + f'actor_{counter_store_model}.pt')
+                torch.save(AC_policy.critic.state_dict(), model_dir + '/' + f'critic_{counter_store_model}.pt')
+                counter_store_model += 1
 
             fileLogs.flush()
-
-            torch.save(AC_policy.actor.state_dict(), model_dir + '/' + f'actor_{model_id}.pt')
-            torch.save(AC_policy.critic.state_dict(), model_dir + '/' + f'critic_{model_id}.pt')
 
             gc.collect()
     fileLogs.close()
