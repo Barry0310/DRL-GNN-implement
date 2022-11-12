@@ -141,7 +141,7 @@ if __name__ == '__main__':
                         value = AC_policy.critic(critic_feature)[0]
 
                         action = np.random.choice(len(action_dist), p=action_dist.detach().numpy())
-                        action_one_hot = np.eye(len(action_dist))[action]
+                        action_one_hot = torch.nn.functional.one_hot(torch.tensor(action), num_classes=len(action_dist))
                         reward, done, _, new_demand, new_src, new_dst, _, _, _ = env_training[topo].step(action,
                                                                                                          demand,
                                                                                                          src,
@@ -151,7 +151,7 @@ if __name__ == '__main__':
                         tensors.append(tensor)
                         critic_features.append(critic_feature)
                         actions.append(action_one_hot)
-                        values.append(value)
+                        values.append(value.detach())
                         masks.append(mask)
                         rewards.append(reward)
                         actions_probs.append(action_dist)
@@ -167,9 +167,9 @@ if __name__ == '__main__':
                         if done:
                             break
 
-            critic_feature = AC_policy.critic_get_graph_features(env_training[2])
+            critic_feature = AC_policy.critic_get_graph_features(env_training[-1])
             value = AC_policy.critic(critic_feature)[0]
-            values.append(value)
+            values.append(value.detach())
 
             returns, advantages = AC_policy.compute_gae(values, masks, rewards)
             actor_loss, critic_loss = AC_policy.update(actions, actions_probs, tensors, critic_features, returns,
@@ -180,7 +180,7 @@ if __name__ == '__main__':
             fileLogs.flush()
 
             gc.collect()
-
+    fileLogs.close()
 
 
 

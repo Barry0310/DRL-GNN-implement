@@ -130,7 +130,6 @@ class PPOAC:
 
     def _compute_actor_loss(self, adv, old_act, old_policy_probs, link_state, graph_id,
                             first, second, state_dim, num_actions):
-        adv = adv.detach()
         old_policy_probs = old_policy_probs.detach()
 
         q_values = self.actor({
@@ -156,7 +155,6 @@ class PPOAC:
         return loss, entropy
 
     def _compute_critic_loss(self, ret, link_state, first, second, state_dim):
-        ret = ret.detach()
 
         value = self.critic({
             'link_state': link_state,
@@ -167,15 +165,6 @@ class PPOAC:
         loss = F.mse_loss(ret, value)
 
         return loss
-
-    def _compute_gradients(self, loss):
-        print('update weight')
-        print('loss:', loss)
-        self.optimizer.zero_grad()
-        loss.backward()
-        torch.nn.utils.clip_grad_value_(self.model.parameters(), clip_value=self.clip_value)
-        self.optimizer.step()
-        self.scheduler.step()
 
     def update(self, actions, actions_probs, tensors, critic_features, returns, advantages):
 
@@ -198,8 +187,8 @@ class PPOAC:
                 'old_act': action,
                 'adv': adv,
                 'old_policy_probs': action_dist,
-                'first_critic': critic_feature['first_critic'],
-                'second_critic': critic_feature['second_critic'],
+                'first_critic': critic_feature['first'],
+                'second_critic': critic_feature['second'],
                 'ret': ret,
             }
 
