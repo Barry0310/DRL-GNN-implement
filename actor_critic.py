@@ -152,7 +152,7 @@ class PPOAC:
             torch.log(torch.sum(old_act * new_policy_probs)) - torch.log(torch.sum(old_act * old_policy_probs))
         )
         surr1 = -ratio*adv
-        surr2 = -torch.clip(ratio, min=1-self.clip_value, max=1+self.clip_value) * adv
+        surr2 = -torch.clip(ratio, min=1-0.1, max=1+0.1) * adv
 
         loss = torch.max(surr1, surr2)
         entropy = -torch.sum(torch.log(new_policy_probs) * new_policy_probs)
@@ -229,6 +229,8 @@ class PPOAC:
                 total_loss = actor_loss + critic_loss
                 self.optimizer.zero_grad()
                 total_loss.backward()
+                torch.nn.utils.clip_grad_norm_(list(self.actor.parameters())+list(self.critic.parameters()),
+                                               max_norm=self.clip_value)
                 self.optimizer.step()
                 self.scheduler.step()
 
