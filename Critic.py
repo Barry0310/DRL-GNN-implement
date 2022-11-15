@@ -24,7 +24,6 @@ class Critic(nn.Module):
         self.readout.apply(self.init_hidden_weights)
         self.out_layer = nn.Linear(self.readout_units, 1)
         torch.nn.init.orthogonal_(self.out_layer.weight, gain=np.sqrt(2))
-        self.readout.add_module('output', self.out_layer)
 
     def init_hidden_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -45,7 +44,7 @@ class Critic(nn.Module):
             state = self.update(m, state)
 
         feature = torch.sum(state, 0)
-        output = self.readout(feature)
+        output = self.out_layer(self.readout(feature))
 
         return output
 

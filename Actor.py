@@ -26,7 +26,6 @@ class Actor(nn.Module):
         self.readout.apply(self.init_hidden_weights)
         self.out_layer = nn.Linear(self.readout_units, 1)
         torch.nn.init.orthogonal_(self.out_layer.weight, gain=np.sqrt(2))
-        self.readout.add_module('output', self.out_layer)
 
     def init_hidden_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -48,7 +47,7 @@ class Actor(nn.Module):
             state = self.update(m, state)
 
         feature = torch.zeros((x['num_actions'], x['state_dim']), dtype=state.dtype).scatter_add_(0, graph_id, state)
-        output = self.readout(feature)
+        output = self.out_layer(self.readout(feature))
 
         return output
 
