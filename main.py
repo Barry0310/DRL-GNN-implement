@@ -32,8 +32,6 @@ if __name__ == '__main__':
 
     num_samples_top = [num_samples_top1, num_samples_top2, num_samples_top3]
 
-    BUFF_SIZE = num_samples_top1 + num_samples_top2 + num_samples_top3
-
     differentiation_str = "Enero_3top_" + str_perctg_demands + experiment_letter
     model_dir = "./models" + differentiation_str
 
@@ -136,8 +134,8 @@ if __name__ == '__main__':
                 print(f"topo {topo+1}")
                 number_samples_reached = False
                 total_num_samples += num_samples_top[topo]
+                tm_id = random.sample(training_tm_ids, 1)[0]
                 while not number_samples_reached:
-                    tm_id = random.sample(training_tm_ids, 1)[0]
                     demand, src, dst = env_training[topo].reset(tm_id=tm_id)
                     while True:
                         action_dist, tensor = AC_policy.predict(env_training[topo], src, dst)
