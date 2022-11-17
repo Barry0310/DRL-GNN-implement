@@ -59,7 +59,7 @@ if __name__ == '__main__':
         'entropy_beta': 0.01,
         'entropy_step': 60,
         'l2_regular': 0.0001,
-        'buffer_size': num_samples_top1 + num_samples_top2 + num_samples_top3,
+        'buffer_size': num_samples_top1,# + num_samples_top2 + num_samples_top3,
         'update_times': 8
     }
 
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     env_training3.generate_environment(dataset_folder_name3 + "/TRAIN", "Goodnet", 0, 100, percentage_demands)
     env_training3.top_K_critical_demands = take_critic_demands
 
-    env_training = [env_training1, env_training2, env_training3]
+    env_training = [env_training1] #, env_training2, env_training3
 
     env_eval1 = gym.make(ENV_NAME)
     env_eval1.seed(SEED)
@@ -177,6 +177,12 @@ if __name__ == '__main__':
             returns, advantages = AC_policy.compute_gae(values, masks, rewards)
             actor_loss, critic_loss = AC_policy.update(actions, actions_probs, tensors, critic_features, returns,
                                                        advantages)
+            if AC_policy.scheduler.get_last_lr()[0] > 0.0001:
+                AC_policy.scheduler.step()
+                print(AC_policy.scheduler.get_last_lr())
+                for i in range(60):
+                    AC_policy.scheduler.step()
+                print(AC_policy.scheduler.get_last_lr())
 
             fileLogs.write("a," + str(actor_loss.detach().numpy()) + ",\n")
             fileLogs.write("c," + str(critic_loss.detach().numpy()) + ",\n")
@@ -221,7 +227,7 @@ if __name__ == '__main__':
             fileLogs.write(">," + str(np.amax(min_link_utis)) + ",\n")
             fileLogs.write("ENTR," + str(hyper_parameter['entropy_beta']) + ",\n")
             fileLogs.write("REW," + str(eval_mean_reward) + ",\n")
-            fileLogs.write("lr," + str(hyper_parameter['lr']) + ",\n")
+            fileLogs.write("lr," + str(AC_policy.scheduler.get_last_lr()[0]) + ",\n")
 
             if eval_mean_reward > max_reward:
                 max_reward = eval_mean_reward

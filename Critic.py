@@ -30,9 +30,9 @@ class Critic(nn.Module):
             torch.nn.init.orthogonal_(m.weight, gain=np.sqrt(1))
 
     def forward(self, x):
-        state = torch.from_numpy(x['link_state'])
-        first = torch.from_numpy(x['first']).unsqueeze(1).expand(-1, x['state_dim'])
-        second = torch.from_numpy(x['second']).unsqueeze(1).expand(-1, x['state_dim'])
+        state = x['link_state']
+        first = x['first'].unsqueeze(1).expand(-1, x['state_dim'])
+        second = x['second'].unsqueeze(1).expand(-1, x['state_dim'])
 
         for _ in range(self.t):
             main_edges = torch.gather(state, 0, first)

@@ -2,7 +2,6 @@ import numpy as np
 import torch
 from Actor import Actor
 from Critic import Critic
-import torch.nn.functional as F
 import torch.optim as optim
 from collections import deque
 import gc
@@ -21,23 +20,20 @@ class PPOAC:
         self.update_times = H['update_times']
         self.actor = Actor(feature_size=self.feature_size, t=H['t'], readout_units=H['readout_units'])
         self.critic = Critic(feature_size=self.feature_size, t=H['t'], readout_units=H['readout_units'])
-        self.optimizer = optim.AdamW([{'params': self.actor.message.parameters()},
-                                     {'params': self.actor.update.parameters()},
-                                     {'params': self.actor.readout.parameters(), 'weight_decay': H['l2_regular']},
-                                     {'params': self.actor.out_layer.parameters()},
-                                     {'params': self.critic.parameters()}
-                                      ], lr=H['lr'], eps=1e-5)
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_step'], gamma=H['lr_decay_rate'])
+        self.optimizer = optim.AdamW(list(self.actor.parameters()) + list(self.critic.parameters()),
+                                     lr=H['lr'], eps=1e-5)
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_step'],
+                                                   gamma=H['lr_decay_rate'])
 
         self.buffer = deque(maxlen=self.buffer_size)
         self.buffer_index = np.arange(self.buffer_size)
 
     def old_cummax(self, alist, extractor):
-        maxes = [np.amax(extractor(v)) + 1 for v in alist]
-        cummaxes = [np.zeros_like(maxes[0])]
+        maxes = torch.tensor([torch.amax(extractor(v)) + 1 for v in alist])
+        cummaxes = [torch.zeros_like(maxes[0])]
         for i in range(len(maxes) - 1):
-            cummaxes.append(np.array(np.sum(maxes[0:i + 1])))
-        return cummaxes
+            cummaxes.append(torch.sum(maxes[0:i + 1]))
+        return torch.tensor(cummaxes)
 
     def predict(self, env, src, dst):
         list_k_features = []
@@ -51,18 +47,15 @@ class PPOAC:
             list_k_features.append(features)
             env.edge_state[:, 2] = 0
 
-        graph_ids = [np.full([list_k_features[it]['link_state'].shape[0]], it) for it in range(len(list_k_features))]
+        graph_ids = [torch.full([list_k_features[it]['link_state'].shape[0]], it) for it in range(len(list_k_features))]
 
         first_offset = self.old_cummax(list_k_features, lambda v: v['first'])
         second_offset = self.old_cummax(list_k_features, lambda v: v['second'])
-
         tensor = {
-            'graph_id': np.concatenate([v for v in graph_ids], axis=0, dtype='int64'),
-            'link_state': np.concatenate([v['link_state'] for v in list_k_features], axis=0, dtype='float32'),
-            'first': np.concatenate([v['first'] + m for v, m in zip(list_k_features, first_offset)], axis=0,
-                                    dtype='int64'),
-            'second': np.concatenate([v['second'] + m for v, m in zip(list_k_features, second_offset)], axis=0,
-                                     dtype='int64'),
+            'graph_id': torch.cat([v for v in graph_ids], dim=0),
+            'link_state': torch.cat([v['link_state'] for v in list_k_features], dim=0),
+            'first': torch.cat([v['first'] + m for v, m in zip(list_k_features, first_offset)], dim=0,),
+            'second': torch.cat([v['second'] + m for v, m in zip(list_k_features, second_offset)], dim=0),
             'state_dim': self.feature_size,
             'num_actions': len(middle_point_list),
         }
@@ -83,15 +76,18 @@ class PPOAC:
             'second': env.second
         }
 
-        temp['utilization'] = np.reshape(temp['utilization'][0:temp['num_edges']], [temp['num_edges'], 1])
-        temp['capacity'] = np.reshape(temp['capacity'][0:temp['num_edges']], [temp['num_edges'], 1])
-        temp['bw_allocated'] = np.reshape(temp['bw_allocated'][0:temp['num_edges']], [temp['num_edges'], 1])
+        temp['utilization'] = torch.reshape(torch.tensor(temp['utilization'][0:temp['num_edges']], dtype=torch.float32),
+                                            (temp['num_edges'], 1))
+        temp['capacity'] = torch.reshape(torch.tensor(temp['capacity'][0:temp['num_edges']], dtype=torch.float32),
+                                         (temp['num_edges'], 1))
+        temp['bw_allocated'] = torch.reshape(torch.tensor(temp['bw_allocated'][0:temp['num_edges']],
+                                                          dtype=torch.float32), (temp['num_edges'], 1))
 
-        hidden_states = np.concatenate([temp['utilization'], temp['capacity'], temp['bw_allocated']], axis=1)
-        link_state = np.pad(hidden_states, ((0, 0), (0, self.feature_size - 3)), 'constant', constant_values=(0, ))
+        hidden_states = torch.cat([temp['utilization'], temp['capacity'], temp['bw_allocated']], dim=1)
+        link_state = torch.nn.functional.pad(hidden_states, (0, self.feature_size - 3), 'constant')
 
-        inputs = {'link_state': link_state, 'first': temp['first'][0:temp['length']],
-                  'second': temp['second'][0:temp['length']]}
+        inputs = {'link_state': link_state, 'first': torch.tensor(temp['first'][0:temp['length']]),
+                  'second': torch.tensor(temp['second'][0:temp['length']])}
         gc.collect()
 
         return inputs
@@ -106,15 +102,17 @@ class PPOAC:
             'second': env.second
         }
 
-        temp['utilization'] = np.reshape(temp['utilization'][0:temp['num_edges']], [temp['num_edges'], 1])
-        temp['capacity'] = np.reshape(temp['capacity'][0:temp['num_edges']], [temp['num_edges'], 1])
+        temp['utilization'] = torch.reshape(torch.tensor(temp['utilization'][0:temp['num_edges']], dtype=torch.float32),
+                                            [temp['num_edges'], 1])
+        temp['capacity'] = torch.reshape(torch.tensor(temp['capacity'][0:temp['num_edges']], dtype=torch.float32),
+                                         [temp['num_edges'], 1])
 
-        hidden_states = np.concatenate([temp['utilization'], temp['capacity']], axis=1)
-        link_state = np.pad(hidden_states, ((0, 0), (0, self.feature_size - 2)), 'constant', constant_values=(0,))
+        hidden_states = torch.cat([temp['utilization'], temp['capacity']], dim=1)
+        link_state = torch.nn.functional.pad(hidden_states, (0, self.feature_size - 2), 'constant')
 
-        inputs = {'link_state': np.array(link_state, dtype='float32'),
-                  'first': np.array(temp['first'][0:temp['length']], dtype='int64'),
-                  'second': np.array(temp['second'][0:temp['length']], dtype='int64'),
+        inputs = {'link_state': link_state,
+                  'first': torch.tensor(temp['first'][0:temp['length']]),
+                  'second': torch.tensor(temp['second'][0:temp['length']]),
                   'state_dim': self.feature_size}
         gc.collect()
 
@@ -167,7 +165,7 @@ class PPOAC:
             'second': second,
             'state_dim': state_dim
         })[0]
-        loss = F.mse_loss(ret, value)
+        loss = torch.square(ret - value)
 
         return loss
 
@@ -232,7 +230,6 @@ class PPOAC:
                 torch.nn.utils.clip_grad_norm_(list(self.actor.parameters())+list(self.critic.parameters()),
                                                max_norm=self.clip_value)
                 self.optimizer.step()
-                self.scheduler.step()
 
         self.buffer.clear()
         gc.collect()

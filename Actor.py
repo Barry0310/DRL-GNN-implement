@@ -11,17 +11,15 @@ class Actor(nn.Module):
         self.readout_units = readout_units
         self.message = nn.Sequential(
             nn.Linear(feature_size*2, feature_size),
-            nn.ReLU(),
-            nn.Linear(feature_size, feature_size),
-            nn.ReLU(),
+            nn.SELU()
         )
         self.message.apply(self.init_hidden_weights)
         self.update = nn.GRUCell(input_size=feature_size, hidden_size=feature_size)
         self.readout = nn.Sequential(
             nn.Linear(feature_size, self.readout_units),
-            nn.ReLU(),
+            nn.SELU(),
             nn.Linear(self.readout_units, self.readout_units),
-            nn.ReLU()
+            nn.SELU()
         )
         self.readout.apply(self.init_hidden_weights)
         self.out_layer = nn.Linear(self.readout_units, 1)
@@ -32,10 +30,10 @@ class Actor(nn.Module):
             torch.nn.init.orthogonal_(m.weight, gain=np.sqrt(0.01))
 
     def forward(self, x):
-        state = torch.from_numpy(x['link_state'])
-        first = torch.from_numpy(x['first']).unsqueeze(1).expand(-1, x['state_dim'])
-        second = torch.from_numpy(x['second']).unsqueeze(1).expand(-1, x['state_dim'])
-        graph_id = torch.from_numpy(x['graph_id']).unsqueeze(1).expand(-1, x['state_dim'])
+        state = x['link_state']
+        first = x['first'].unsqueeze(1).expand(-1, x['state_dim'])
+        second = x['second'].unsqueeze(1).expand(-1, x['state_dim'])
+        graph_id = x['graph_id'].unsqueeze(1).expand(-1, x['state_dim'])
 
         for _ in range(self.t):
             main_edges = torch.gather(state, 0, first)
