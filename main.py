@@ -59,7 +59,7 @@ if __name__ == '__main__':
         'entropy_beta': 0.01,
         'entropy_step': 60,
         'l2_regular': 0.0001,
-        'buffer_size': num_samples_top1,# + num_samples_top2 + num_samples_top3,
+        'buffer_size': num_samples_top1 + num_samples_top2 + num_samples_top3,
         'update_times': 8
     }
 
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     env_training3.generate_environment(dataset_folder_name3 + "/TRAIN", "Goodnet", 0, 100, percentage_demands)
     env_training3.top_K_critical_demands = take_critic_demands
 
-    env_training = [env_training1] #, env_training2, env_training3
+    env_training = [env_training1, env_training2, env_training3]
 
     env_eval1 = gym.make(ENV_NAME)
     env_eval1.seed(SEED)
@@ -179,10 +179,6 @@ if __name__ == '__main__':
                                                        advantages)
             if AC_policy.scheduler.get_last_lr()[0] > 0.0001:
                 AC_policy.scheduler.step()
-                print(AC_policy.scheduler.get_last_lr())
-                for i in range(60):
-                    AC_policy.scheduler.step()
-                print(AC_policy.scheduler.get_last_lr())
 
             fileLogs.write("a," + str(actor_loss.detach().numpy()) + ",\n")
             fileLogs.write("c," + str(critic_loss.detach().numpy()) + ",\n")
