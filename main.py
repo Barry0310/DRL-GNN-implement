@@ -113,7 +113,7 @@ if __name__ == '__main__':
     for iters in range(150):
 
         if iters * hyper_parameter['episode'] >= hyper_parameter['entropy_step']:
-            hyper_parameter['entropy_step'] = hyper_parameter['entropy_step'] / 10
+            AC_policy.entropy_beta = AC_policy.entropy_beta / 10
         for e in range(hyper_parameter['episode']):
 
             print(f"Episode {iters*hyper_parameter['episode']+e}")
@@ -128,7 +128,7 @@ if __name__ == '__main__':
 
             total_num_samples = 0
 
-            #timer_a = time.time()
+            timer_a = time.time()
             AC_policy.actor.train()
             AC_policy.critic.train()
 
@@ -175,17 +175,17 @@ if __name__ == '__main__':
             critic_feature = AC_policy.critic_get_graph_features(env_training[-1])
             value = AC_policy.critic(critic_feature)[0]
             values.append(value.detach())
-            #timer_b = time.time()
-            #print("collect_data", timer_b - timer_a, "sec")
+            timer_b = time.time()
+            print("collect_data", timer_b - timer_a, "sec")
 
-            #timer_a = time.time()
+            timer_a = time.time()
             returns, advantages = AC_policy.compute_gae(values, masks, rewards)
             actor_loss, critic_loss = AC_policy.update(actions, actions_probs, tensors, critic_features, returns,
                                                        advantages)
             if AC_policy.scheduler.get_last_lr()[0] > 0.0001:
                 AC_policy.scheduler.step()
-            #timer_b = time.time()
-            #print("update", timer_b - timer_a, "sec")
+            timer_b = time.time()
+            print("update", timer_b - timer_a, "sec")
 
             fileLogs.write("a," + str(actor_loss.detach().numpy()) + ",\n")
             fileLogs.write("c," + str(critic_loss.detach().numpy()) + ",\n")
@@ -200,7 +200,7 @@ if __name__ == '__main__':
             AC_policy.actor.eval()
             AC_policy.critic.eval()
 
-            #timer_a = time.time()
+            timer_a = time.time()
             for topo in range(len(env_eval)):
                 for tm_id in range(EVALUATION_EPISODES):
                     demand, src, dst = env_eval[topo].reset(tm_id=tm_id)
@@ -222,14 +222,14 @@ if __name__ == '__main__':
                     min_link_utis[posi] = min_link_uti
                     uti_stds[posi] = uti_std
 
-            #timer_b = time.time()
-            #print("eval", timer_b - timer_a, "sec")
+            timer_b = time.time()
+            print("eval", timer_b - timer_a, "sec")
             eval_mean_reward = np.mean(rewards_test)
             fileLogs.write(";," + str(np.mean(uti_stds)) + ",\n")
             fileLogs.write("+," + str(np.mean(error_links)) + ",\n")
             fileLogs.write("<," + str(np.amax(max_link_utis)) + ",\n")
             fileLogs.write(">," + str(np.amax(min_link_utis)) + ",\n")
-            fileLogs.write("ENTR," + str(hyper_parameter['entropy_beta']) + ",\n")
+            fileLogs.write("ENTR," + str(AC_policy.entropy_beta) + ",\n")
             fileLogs.write("REW," + str(eval_mean_reward) + ",\n")
             fileLogs.write("lr," + str(AC_policy.scheduler.get_last_lr()[0]) + ",\n")
 
