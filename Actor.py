@@ -24,12 +24,12 @@ class Actor(nn.Module):
         )
         self.readout.apply(self._init_hidden_weights)
         self.out_layer = nn.Linear(self.readout_units, 1)
-        torch.nn.init.orthogonal_(self.out_layer.weight, gain=np.sqrt(2))
+        torch.nn.init.orthogonal_(self.out_layer.weight, gain=np.sqrt(0.01))
         torch.nn.init.constant_(self.out_layer.bias, 0)
 
     def _init_hidden_weights(self, m):
         if isinstance(m, nn.Linear):
-            torch.nn.init.orthogonal_(m.weight, gain=np.sqrt(0.01))
+            torch.nn.init.orthogonal_(m.weight, gain=np.sqrt(2))
             torch.nn.init.constant_(m.bias, 0)
         if isinstance(m, nn.GRUCell):
             torch.nn.init.xavier_uniform_(m.weight_ih)
