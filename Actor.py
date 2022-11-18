@@ -13,21 +13,29 @@ class Actor(nn.Module):
             nn.Linear(feature_size*2, feature_size),
             nn.SELU()
         )
-        self.message.apply(self.init_hidden_weights)
+        self.message.apply(self._init_hidden_weights)
         self.update = nn.GRUCell(input_size=feature_size, hidden_size=feature_size)
+        self.update.apply(self._init_hidden_weights)
         self.readout = nn.Sequential(
             nn.Linear(feature_size, self.readout_units),
             nn.SELU(),
             nn.Linear(self.readout_units, self.readout_units),
             nn.SELU()
         )
-        self.readout.apply(self.init_hidden_weights)
+        self.readout.apply(self._init_hidden_weights)
         self.out_layer = nn.Linear(self.readout_units, 1)
         torch.nn.init.orthogonal_(self.out_layer.weight, gain=np.sqrt(2))
+        torch.nn.init.constant_(self.out_layer.bias, 0)
 
-    def init_hidden_weights(self, m):
+    def _init_hidden_weights(self, m):
         if isinstance(m, nn.Linear):
             torch.nn.init.orthogonal_(m.weight, gain=np.sqrt(0.01))
+            torch.nn.init.constant_(m.bias, 0)
+        if isinstance(m, nn.GRUCell):
+            torch.nn.init.xavier_uniform_(m.weight_ih)
+            torch.nn.init.xavier_uniform_(m.weight_hh)
+            torch.nn.init.constant_(m.bias_ih, 0)
+            torch.nn.init.constant_(m.bias_hh, 0)
 
     def forward(self, x):
         state = x['link_state']
