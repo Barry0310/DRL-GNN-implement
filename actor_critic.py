@@ -88,7 +88,6 @@ class PPOAC:
 
         inputs = {'link_state': link_state, 'first': torch.tensor(temp['first'][0:temp['length']]),
                   'second': torch.tensor(temp['second'][0:temp['length']])}
-        gc.collect()
 
         return inputs
 
@@ -114,7 +113,6 @@ class PPOAC:
                   'first': torch.tensor(temp['first'][0:temp['length']]),
                   'second': torch.tensor(temp['second'][0:temp['length']]),
                   'state_dim': self.feature_size}
-        gc.collect()
 
         return inputs
 

@@ -191,8 +191,6 @@ if __name__ == '__main__':
             fileLogs.write("c," + str(critic_loss.detach().numpy()) + ",\n")
             fileLogs.flush()
 
-            gc.collect()
-
             rewards_test = np.zeros(EVALUATION_EPISODES * 3)
             error_links = np.zeros(EVALUATION_EPISODES * 3)
             max_link_utis = np.zeros(EVALUATION_EPISODES * 3)
