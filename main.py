@@ -147,10 +147,7 @@ if __name__ == '__main__':
 
                         action = np.random.choice(len(action_dist), p=action_dist.detach().numpy())
                         action_one_hot = torch.nn.functional.one_hot(torch.tensor(action), num_classes=len(action_dist))
-                        reward, done, _, new_demand, new_src, new_dst, _, _, _ = env_training[topo].step(action,
-                                                                                                         demand,
-                                                                                                         src,
-                                                                                                         dst)
+                        reward, done, _, demand, src, dst, _, _, _ = env_training[topo].step(action, demand, src, dst)
                         mask = not done
 
                         tensors.append(tensor)
@@ -160,10 +157,6 @@ if __name__ == '__main__':
                         masks.append(mask)
                         rewards.append(reward)
                         actions_probs.append(action_dist)
-
-                        demand = new_demand
-                        source = new_src
-                        destination = new_dst
 
                         if len(tensors) == total_num_samples:
                             number_samples_reached = True
