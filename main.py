@@ -110,10 +110,10 @@ if __name__ == '__main__':
     counter_store_model = 0
     max_reward = -1000
     AC_policy = PPOAC(hyper_parameter)
-    for iters in range(150):
+    for iters in range(100):
 
         if iters * hyper_parameter['episode'] >= hyper_parameter['entropy_step']:
-            AC_policy.entropy_beta = AC_policy.entropy_beta / 10
+            AC_policy.entropy_beta = hyper_parameter['entropy_beta'] / 10
         for e in range(hyper_parameter['episode']):
 
             print(f"Episode {iters*hyper_parameter['episode']+e}")
