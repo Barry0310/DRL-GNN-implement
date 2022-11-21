@@ -51,7 +51,7 @@ def play_middRout_games_sp(tm_id, env_middRout_sp, agent, timesteps):
     time_start_DRL = start
     while 1:
         action_dist, tensor = agent.predict(env_middRout_sp, source, destination)
-        action = np.argmax(action_dist)
+        action = torch.argmax(action_dist)
         
         reward, done, error_eval_links, demand, source, destination, maxLinkUti, minLinkUti, utiStd = env_middRout_sp.step(action, demand, source, destination)
         rewardAddTest += reward
