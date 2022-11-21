@@ -50,7 +50,7 @@ def play_middRout_games_sp(tm_id, env_middRout_sp, agent, timesteps):
     start = tt.time()
     time_start_DRL = start
     while 1:
-        action_dist, tensor = agent.pred_action_node_distrib_sp(env_middRout_sp, source, destination)
+        action_dist, tensor = agent.predict(env_middRout_sp, source, destination)
         action = np.argmax(action_dist)
         
         reward, done, error_eval_links, demand, source, destination, maxLinkUti, minLinkUti, utiStd = env_middRout_sp.step(action, demand, source, destination)
