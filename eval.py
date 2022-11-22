@@ -8,6 +8,6 @@ if __name__ == "__main__":
                          "-max_edge", "100", "-min_edge", "5",
                          "-max_nodes", "30", "-min_nodes", "1",
                          "-n", "2",
-                         "-f1", "results_single_top", "-f2", topo,
-                         "-d", f"./Logs/exp{log}Logs.txt"], shell=True)
-    subprocess.call(["python", "figures_5_and_6.py", "-d", log], shell=True)
+                         "-f1", "results_single_top", "-f2", t,
+                         "-d", f"./Logs/exp{log}Logs.txt"])
+    subprocess.call(["python", "figures_5_and_6.py", "-d", log])

@@ -12,7 +12,7 @@ def worker_execute(args):
     general_dataset_folder = args[5]
     specific_dataset_folder = args[6]
 
-    subprocess.call(["python", "script_eval_on_single_topology.py", "-t", str(tm_id), "-m", str(model_id), "-g", graph_topology_name, "-o", drl_eval_res_folder, "-d", differentiation_str, "-f", general_dataset_folder, "-f2", specific_dataset_folder], shell=True)
+    subprocess.call(["python", "script_eval_on_single_topology.py", "-t", str(tm_id), "-m", str(model_id), "-g", graph_topology_name, "-o", drl_eval_res_folder, "-d", differentiation_str, "-f", general_dataset_folder, "-f2", specific_dataset_folder])
 
 if __name__ == "__main__":
     # First we execute this script to evaluate our drl agent over different topologies from the folder (argument -f2)
