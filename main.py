@@ -237,6 +237,8 @@ if __name__ == '__main__':
 
             gc.collect()
     fileLogs.close()
+    torch.save(AC_policy.actor.state_dict(), model_dir + '/' + f'actor_final.pt')
+    torch.save(AC_policy.critic.state_dict(), model_dir + '/' + f'critic_final.pt')
 
 
 
