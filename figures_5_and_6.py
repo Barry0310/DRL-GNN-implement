@@ -138,7 +138,7 @@ if __name__ == "__main__":
     plt.grid(color='gray')
     plt.legend(loc='lower right', ncol=3, bbox_to_anchor=(1.03, -0.3))
     plt.tight_layout()
-    plt.savefig(path_to_dir+'Figure_6.pdf', bbox_inches='tight',pad_inches = 0)
+    plt.savefig(path_to_dir+'Figure_6.png', bbox_inches='tight',pad_inches = 0)
     plt.close()
 
  
@@ -193,6 +193,6 @@ if __name__ == "__main__":
     plt.legend(loc='upper left', ncol=3)
     plt.ylim((0.5, 1.2))
     plt.tight_layout()
-    plt.savefig(path_to_dir+'Figure_5.pdf', bbox_inches='tight',pad_inches = 0)
+    plt.savefig(path_to_dir+'Figure_5.png', bbox_inches='tight',pad_inches = 0)
     plt.clf()
     plt.close()

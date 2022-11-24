@@ -3,6 +3,7 @@ import subprocess
 if __name__ == "__main__":
     topo = ["NEW_EliBackbone/EVALUATE", "NEW_Janetbackbone/EVALUATE", "NEW_HurricaneElectric/EVALUATE"]
     log = "Enero_3top_15_B_NEW"
+    subprocess.call(["python", "parse_PPO.py", "-d", "./Logs/exp" + log + "Logs.txt"])
     for t in topo:
         subprocess.call(["python", "eval_on_single_topology.py",
                          "-max_edge", "100", "-min_edge", "5",
