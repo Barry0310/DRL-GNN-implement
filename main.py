@@ -171,7 +171,7 @@ if __name__ == '__main__':
 
             critic_feature = AC_policy.critic_get_graph_features(env_training[-1])
             value = AC_policy.critic(critic_feature)[0]
-            values.append(value.detach())
+            values.append(value.cpu().detach())
             timer_b = time.time()
             print("collect_data", timer_b - timer_a, "sec")
 
