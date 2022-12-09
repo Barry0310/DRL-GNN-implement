@@ -18,6 +18,10 @@ if __name__ == '__main__':
     np.random.seed(SEED)
     random.seed(SEED)
     torch.manual_seed(1)
+    torch.cuda.manual_seed(1)
+    torch.cuda.manual_seed_all(1)
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
     experiment_letter = "_B_NEW"
     take_critic_demands = True  # True if we want to take the demands from the most critical links, True if we want to take the largest
     percentage_demands = 15  # Percentage of demands that will be used in the optimization
@@ -109,7 +113,7 @@ if __name__ == '__main__':
 
     counter_store_model = 0
     max_reward = -1000
-    AC_policy = PPOAC(hyper_parameter)
+    AC_policy = PPOAC(hyper_parameter, device=torch.device("cpu"))
     for iters in range(100):
 
         if iters * hyper_parameter['episode'] >= hyper_parameter['entropy_step']:
