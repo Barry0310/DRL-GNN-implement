@@ -145,7 +145,7 @@ if __name__ == '__main__':
                         critic_feature = AC_policy.critic_get_graph_features(env_training[topo])
                         value = AC_policy.critic(critic_feature)[0]
 
-                        action = np.random.choice(len(action_dist), p=action_dist.detach().numpy())
+                        action = np.random.choice(len(action_dist), p=action_dist.cpu().detach().numpy())
                         action_one_hot = torch.nn.functional.one_hot(torch.tensor(action), num_classes=len(action_dist))
                         reward, done, _, demand, src, dst, _, _, _ = env_training[topo].step(action, demand, src, dst)
                         mask = not done

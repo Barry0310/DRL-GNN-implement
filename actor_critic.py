@@ -8,7 +8,7 @@ import gc
 
 
 class PPOAC:
-    def __init__(self, hyper_parameter):
+    def __init__(self, hyper_parameter, device=None):
         H = hyper_parameter
         self.gae_gamma = H['gae_gamma']
         self.gae_lambda = H['gae_lambda']
@@ -31,6 +31,9 @@ class PPOAC:
 
         self.buffer = deque(maxlen=self.buffer_size)
         self.buffer_index = np.arange(self.buffer_size)
+        self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.actor.to(self.device)
+        self.critic.to(self.device)
 
     def old_cummax(self, alist, extractor):
         maxes = torch.tensor([torch.amax(extractor(v)) + 1 for v in alist])
@@ -56,10 +59,10 @@ class PPOAC:
         first_offset = self.old_cummax(list_k_features, lambda v: v['first'])
         second_offset = self.old_cummax(list_k_features, lambda v: v['second'])
         tensor = {
-            'graph_id': torch.cat([v for v in graph_ids], dim=0),
-            'link_state': torch.cat([v['link_state'] for v in list_k_features], dim=0),
-            'first': torch.cat([v['first'] + m for v, m in zip(list_k_features, first_offset)], dim=0,),
-            'second': torch.cat([v['second'] + m for v, m in zip(list_k_features, second_offset)], dim=0),
+            'graph_id': torch.cat([v for v in graph_ids], dim=0).to(self.device),
+            'link_state': torch.cat([v['link_state'] for v in list_k_features], dim=0).to(self.device),
+            'first': torch.cat([v['first'] + m for v, m in zip(list_k_features, first_offset)], dim=0,).to(self.device),
+            'second': torch.cat([v['second'] + m for v, m in zip(list_k_features, second_offset)], dim=0).to(self.device),
             'state_dim': self.feature_size,
             'num_actions': len(middle_point_list),
         }
@@ -113,9 +116,9 @@ class PPOAC:
         hidden_states = torch.cat([temp['utilization'], temp['capacity']], dim=1)
         link_state = torch.nn.functional.pad(hidden_states, (0, self.feature_size - 2), 'constant')
 
-        inputs = {'link_state': link_state,
-                  'first': torch.tensor(temp['first'][0:temp['length']]),
-                  'second': torch.tensor(temp['second'][0:temp['length']]),
+        inputs = {'link_state': link_state.to(self.device),
+                  'first': torch.tensor(temp['first'][0:temp['length']]).to(self.device),
+                  'second': torch.tensor(temp['second'][0:temp['length']]).to(self.device),
                   'state_dim': self.feature_size}
 
         return inputs

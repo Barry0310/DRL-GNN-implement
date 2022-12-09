@@ -49,10 +49,11 @@ class Actor(nn.Module):
             edges_concat = torch.cat((main_edges, neigh_edges), 1)
             m = self.message(edges_concat)
 
-            m = torch.zeros(state.shape, dtype=m.dtype).scatter_add_(0, second, m)
+            m = torch.zeros(state.shape, dtype=m.dtype, device=state.device).scatter_add_(0, second, m)
             state = self.update(m, state)
 
-        feature = torch.zeros((x['num_actions'], x['state_dim']), dtype=state.dtype).scatter_add_(0, graph_id, state)
+        feature = torch.zeros((x['num_actions'], x['state_dim']), dtype=state.dtype,
+                              device=state.device).scatter_add_(0, graph_id, state)
         output = self.out_layer(self.readout(feature))
 
         return output

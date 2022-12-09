@@ -48,7 +48,7 @@ class Critic(nn.Module):
             edges_concat = torch.cat((main_edges, neigh_edges), 1)
             m = self.message(edges_concat)
 
-            m = torch.zeros(state.shape, dtype=m.dtype).scatter_add_(0, second, m)
+            m = torch.zeros(state.shape, dtype=m.dtype, device=state.device).scatter_add_(0, second, m)
             state = self.update(m, state)
 
         feature = torch.sum(state, 0)
