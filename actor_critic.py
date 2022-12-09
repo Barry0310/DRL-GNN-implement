@@ -192,7 +192,7 @@ class PPOAC:
                 'state_dim': tensor['state_dim'],
                 'num_actions': tensor['num_actions'],
                 'link_state_critic': critic_feature['link_state'],
-                'old_act': action,
+                'old_act': action.to(self.device),
                 'adv': adv,
                 'old_policy_probs': action_dist,
                 'first_critic': critic_feature['first'],

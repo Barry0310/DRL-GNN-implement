@@ -157,7 +157,7 @@ if __name__ == '__main__':
                         tensors.append(tensor)
                         critic_features.append(critic_feature)
                         actions.append(action_one_hot)
-                        values.append(value.detach())
+                        values.append(value.cpu().detach())
                         masks.append(mask)
                         rewards.append(reward)
                         actions_probs.append(action_dist)
@@ -184,8 +184,8 @@ if __name__ == '__main__':
             timer_b = time.time()
             print("update", timer_b - timer_a, "sec")
 
-            fileLogs.write("a," + str(actor_loss.detach().numpy()) + ",\n")
-            fileLogs.write("c," + str(critic_loss.detach().numpy()) + ",\n")
+            fileLogs.write("a," + str(actor_loss.cpu().detach().numpy()) + ",\n")
+            fileLogs.write("c," + str(critic_loss.cpu().detach().numpy()) + ",\n")
             fileLogs.flush()
 
             rewards_test = np.zeros(EVALUATION_EPISODES * 3)
