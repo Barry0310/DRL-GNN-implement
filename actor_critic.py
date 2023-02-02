@@ -20,12 +20,7 @@ class PPOAC:
         self.update_times = H['update_times']
         self.actor = Actor(feature_size=self.feature_size, t=H['t'], readout_units=H['readout_units'])
         self.critic = Critic(feature_size=self.feature_size, t=H['t'], readout_units=H['readout_units'])
-        self.optimizer = optim.AdamW([{'params': self.actor.message.parameters(), 'weight_decay': 0},
-                                      {'params': self.actor.update.parameters(), 'weight_decay': 0},
-                                      {'params': self.actor.readout.parameters(), 'weight_decay': H['l2_regular']},
-                                      {'params': self.actor.out_layer.parameters(), 'weight_decay': 0}, 
-                                      {'params': self.critic.parameters(), 'weight_decay': 0}],
-                                     lr=H['lr'], eps=1e-5)
+        self.optimizer = optim.AdamW(list(self.actor.parameters()) + list(self.critic.parameters()), lr=H['lr'])
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=H['lr_decay_step'],
                                                    gamma=H['lr_decay_rate'])
 
