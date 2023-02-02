@@ -31,11 +31,14 @@ class Critic(nn.Module):
         if isinstance(m, nn.Linear):
             torch.nn.init.orthogonal_(m.weight, gain=np.sqrt(2))
             torch.nn.init.constant_(m.bias, 0)
-        if isinstance(m, nn.GRUCell):
-            torch.nn.init.xavier_uniform_(m.weight_ih)
-            torch.nn.init.xavier_uniform_(m.weight_hh)
-            torch.nn.init.constant_(m.bias_ih, 0)
-            torch.nn.init.constant_(m.bias_hh, 0)
+        elif isinstance(m, (nn.GRUCell, nn.GRU)):
+            for name, param in m.named_parameters():
+                if 'weight_ih' in name:
+                    torch.nn.init.xavier_uniform_(param)
+                elif 'weight_hh' in name:
+                    torch.nn.init.xavier_uniform_(param)
+                elif 'bias' in name:
+                    torch.nn.init.constant_(param, 0)
 
     def forward(self, x):
         state = x['link_state']

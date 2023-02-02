@@ -47,23 +47,50 @@ class PPOAC:
 
         middle_point_list = env.src_dst_k_middlepoints[str(src) + ':' + str(dst)]
         for mid in range(len(middle_point_list)):
-            env.mark_action_sp(src, middle_point_list[mid], src, dst)
-            if middle_point_list[mid] != dst:
-                env.mark_action_sp(middle_point_list[mid], dst, src, dst)
-            features = self.actor_get_graph_features(env)
+            #env.mark_action_sp(src, middle_point_list[mid], src, dst)
+            #if middle_point_list[mid] != dst:
+                #env.mark_action_sp(middle_point_list[mid], dst, src, dst)
+            features = self.actor_get_graph_features(env, src, dst, middle_point_list[mid])
             list_k_features.append(features)
-            env.edge_state[:, 2] = 0
+            #env.edge_state[:, 2] = 0
 
-        graph_ids = [torch.full([list_k_features[it]['link_state'].shape[0]], it) for it in range(len(list_k_features))]
+        path_id = []
+        sequence = []
+        link_id = []
+        for i in range(len(list_k_features)):
+            for j in range(len(list_k_features[i]['path'])):
+                path_id.append(i)
+                sequence.append(j)
+            link_id = link_id + list_k_features[i]['path']
 
-        first_offset = self.old_cummax(list_k_features, lambda v: v['first'])
-        second_offset = self.old_cummax(list_k_features, lambda v: v['second'])
+        temp = {
+            'num_edges': env.numEdges,
+            'capacity': env.link_capacity_feature,
+            'utilization': np.divide(env.edge_state[:, 0], env.edge_state[:, 1]),
+        }
+        temp['utilization'] = torch.reshape(torch.tensor(temp['utilization'][0:temp['num_edges']], dtype=torch.float32),
+                                            (temp['num_edges'], 1))
+        temp['capacity'] = torch.reshape(torch.tensor(temp['capacity'][0:temp['num_edges']], dtype=torch.float32),
+                                         (temp['num_edges'], 1))
+        hidden_states = torch.cat([temp['utilization'], temp['capacity']], dim=1)
+        link_state = torch.nn.functional.pad(hidden_states, (0, self.feature_size - 2), 'constant')
+
+        path_state = torch.stack([v['path_state'] for v in list_k_features], dim=0)
+
+        #graph_ids = [torch.full([list_k_features[it]['link_state'].shape[0]], it) for it in range(len(list_k_features))]
+
+        #first_offset = self.old_cummax(list_k_features, lambda v: v['first'])
+        #second_offset = self.old_cummax(list_k_features, lambda v: v['second'])
         tensor = {
-            'graph_id': torch.cat([v for v in graph_ids], dim=0).to(self.device),
-            'link_state': torch.cat([v['link_state'] for v in list_k_features], dim=0).to(self.device),
-            'first': torch.cat([v['first'] + m for v, m in zip(list_k_features, first_offset)], dim=0,).to(self.device),
-            'second': torch.cat([v['second'] + m for v, m in zip(list_k_features, second_offset)], dim=0).to(self.device),
-            'state_dim': self.feature_size,
+            #'graph_id': torch.cat([v for v in graph_ids], dim=0).to(self.device),
+            'link_state': link_state.to(self.device),
+            'path_state': path_state.to(self.device),
+            #'first': torch.cat([v['first'] + m for v, m in zip(list_k_features, first_offset)], dim=0,).to(self.device),
+            #'second': torch.cat([v['second'] + m for v, m in zip(list_k_features, second_offset)], dim=0).to(self.device),
+            'path_id': torch.tensor(path_id).to(self.device),
+            'sequence': torch.tensor(sequence).to(self.device),
+            'link_id': torch.tensor(link_id).to(self.device),
+            #'state_dim': self.feature_size,
             'num_actions': len(middle_point_list),
         }
         q_values = self.actor(tensor)
@@ -72,29 +99,50 @@ class PPOAC:
 
         return soft_max_q_values, tensor
 
-    def actor_get_graph_features(self, env):
+    def get_path(self, env, src, dst):
+        path = []
+        current_path = env.shortest_paths[src, dst]
+        i = 0
+        j = 1
+        while (j < len(current_path)):
+            path.append(env.edgesDict[str(current_path[i]) + ':' + str(current_path[j])])
+            i = i + 1
+            j = j + 1
+        return path
+
+    def actor_get_graph_features(self, env, src, dst, mid):
         temp = {
-            'num_edges': env.numEdges,
-            'length': env.firstTrueSize,
-            'capacity': env.link_capacity_feature,
-            'bw_allocated': env.edge_state[:,2],
-            'utilization': np.divide(env.edge_state[:,0], env.edge_state[:, 1]),
-            'first': env.first,
-            'second': env.second
+            #'num_edges': env.numEdges,
+            #'length': env.firstTrueSize,
+            #'capacity': env.link_capacity_feature,
+            #'bw_allocated': env.edge_state[:, 2],
+            #'utilization': np.divide(env.edge_state[:, 0], env.edge_state[:, 1]),
+            'path': self.get_path(env, src, mid),
+            'demand': [env.TM[src][dst]],
+            'link_capacity': env.edge_state[:, 1],
+            #'first': env.first,
+            #'second': env.second
         }
 
-        temp['utilization'] = torch.reshape(torch.tensor(temp['utilization'][0:temp['num_edges']], dtype=torch.float32),
-                                            (temp['num_edges'], 1))
-        temp['capacity'] = torch.reshape(torch.tensor(temp['capacity'][0:temp['num_edges']], dtype=torch.float32),
-                                         (temp['num_edges'], 1))
-        temp['bw_allocated'] = torch.reshape(torch.tensor(temp['bw_allocated'][0:temp['num_edges']],
-                                                          dtype=torch.float32), (temp['num_edges'], 1))
+        if mid != dst:
+            temp['path'] = temp['path'] + self.get_path(env, mid, dst)
 
-        hidden_states = torch.cat([temp['utilization'], temp['capacity'], temp['bw_allocated']], dim=1)
-        link_state = torch.nn.functional.pad(hidden_states, (0, self.feature_size - 3), 'constant')
+        temp['demand'][0] = temp['demand'][0] / min(temp['link_capacity'][temp['path']])
 
-        inputs = {'link_state': link_state, 'first': torch.tensor(temp['first'][0:temp['length']]),
-                  'second': torch.tensor(temp['second'][0:temp['length']])}
+        path_state = torch.nn.functional.pad(torch.tensor(temp['demand'], dtype=torch.float32),
+                                             (0, self.feature_size - 1), 'constant')
+
+        #temp['utilization'] = torch.reshape(torch.tensor(temp['utilization'][0:temp['num_edges']], dtype=torch.float32),
+                                            #(temp['num_edges'], 1))
+        #temp['capacity'] = torch.reshape(torch.tensor(temp['capacity'][0:temp['num_edges']], dtype=torch.float32),
+                                         #(temp['num_edges'], 1))
+        #temp['bw_allocated'] = torch.reshape(torch.tensor(temp['bw_allocated'][0:temp['num_edges']],
+                                                          #dtype=torch.float32), (temp['num_edges'], 1))
+
+        #hidden_states = torch.cat([temp['utilization'], temp['capacity']], dim=1)
+        #link_state = torch.nn.functional.pad(hidden_states, (0, self.feature_size - 2), 'constant')
+
+        inputs = {'path': temp['path'], 'path_state': path_state}
 
         return inputs
 
@@ -136,18 +184,10 @@ class PPOAC:
 
         return returns, (adv - np.mean(adv)) / (np.std(adv) + 1e-10)
 
-    def _compute_actor_loss(self, adv, old_act, old_policy_probs, link_state, graph_id,
-                            first, second, state_dim, num_actions):
+    def _compute_actor_loss(self, adv, old_act, old_policy_probs, actor_feature):
         old_policy_probs = old_policy_probs.detach()
 
-        q_values = self.actor({
-            'graph_id': graph_id,
-            'link_state': link_state,
-            'first': first,
-            'second': second,
-            'state_dim': state_dim,
-            'num_actions': num_actions,
-        })
+        q_values = self.actor(actor_feature)
         q_values = torch.reshape(q_values, (-1,))
         new_policy_probs = torch.nn.functional.softmax(q_values, dim=0)
 
@@ -162,14 +202,9 @@ class PPOAC:
 
         return loss, entropy
 
-    def _compute_critic_loss(self, ret, link_state, first, second, state_dim):
+    def _compute_critic_loss(self, ret, critic_feature):
 
-        value = self.critic({
-            'link_state': link_state,
-            'first': first,
-            'second': second,
-            'state_dim': state_dim
-        })[0]
+        value = self.critic(critic_feature)[0]
         loss = torch.square(ret - value)
 
         return loss
@@ -185,18 +220,11 @@ class PPOAC:
             action_dist = actions_probs[pos]
 
             update_tensor = {
-                'graph_id': tensor['graph_id'],
-                'link_state': tensor['link_state'],
-                'first': tensor['first'],
-                'second': tensor['second'],
-                'state_dim': tensor['state_dim'],
-                'num_actions': tensor['num_actions'],
-                'link_state_critic': critic_feature['link_state'],
+                'actor_feature': tensor,
+                'critic_feature': critic_feature,
                 'old_act': action.to(self.device),
                 'adv': adv,
                 'old_policy_probs': action_dist,
-                'first_critic': critic_feature['first'],
-                'second_critic': critic_feature['second'],
                 'ret': ret,
             }
 
@@ -214,13 +242,8 @@ class PPOAC:
 
                     sample_actor_loss, sample_entropy = self._compute_actor_loss(sample['adv'], sample['old_act'],
                                                                                  sample['old_policy_probs'],
-                                                                                 sample['link_state'],
-                                                                                 sample['graph_id'], sample['first'],
-                                                                                 sample['second'], sample['state_dim'],
-                                                                                 sample['num_actions'])
-                    sample_critic_loss = self._compute_critic_loss(sample['ret'], sample['link_state_critic'],
-                                                                   sample['first_critic'], sample['second_critic'],
-                                                                   sample['state_dim'])
+                                                                                 sample['actor_feature'])
+                    sample_critic_loss = self._compute_critic_loss(sample['ret'], sample['critic_feature'])
                     entropy += sample_entropy
                     actor_loss += sample_actor_loss
                     critic_loss += sample_critic_loss

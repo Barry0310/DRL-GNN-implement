@@ -9,10 +9,7 @@ class Actor(nn.Module):
         self.feature_size = feature_size
         self.t = t
         self.readout_units = readout_units
-        self.message = nn.Sequential(
-            nn.Linear(feature_size*2, feature_size),
-            nn.SELU()
-        )
+        self.message = nn.GRU(input_size=feature_size, hidden_size=feature_size, batch_first=True)
         self.message.apply(self._init_hidden_weights)
         self.update = nn.GRUCell(input_size=feature_size, hidden_size=feature_size)
         self.update.apply(self._init_hidden_weights)
@@ -31,30 +28,44 @@ class Actor(nn.Module):
         if isinstance(m, nn.Linear):
             torch.nn.init.orthogonal_(m.weight, gain=np.sqrt(2))
             torch.nn.init.constant_(m.bias, 0)
-        if isinstance(m, nn.GRUCell):
-            torch.nn.init.xavier_uniform_(m.weight_ih)
-            torch.nn.init.xavier_uniform_(m.weight_hh)
-            torch.nn.init.constant_(m.bias_ih, 0)
-            torch.nn.init.constant_(m.bias_hh, 0)
+        elif isinstance(m, (nn.GRUCell, nn.GRU)):
+            for name, param in m.named_parameters():
+                if 'weight_ih' in name:
+                    torch.nn.init.xavier_uniform_(param)
+                elif 'weight_hh' in name:
+                    torch.nn.init.xavier_uniform_(param)
+                elif 'bias' in name:
+                    torch.nn.init.constant_(param, 0)
 
     def forward(self, x):
-        state = x['link_state']
-        first = x['first'].unsqueeze(1).expand(-1, x['state_dim'])
-        second = x['second'].unsqueeze(1).expand(-1, x['state_dim'])
-        graph_id = x['graph_id'].unsqueeze(1).expand(-1, x['state_dim'])
+        link_state = x['link_state']
+        path_state = x['path_state']
+        #first = x['first'].unsqueeze(1).expand(-1, x['state_dim'])
+        #second = x['second'].unsqueeze(1).expand(-1, x['state_dim'])
+        #graph_id = x['graph_id'].unsqueeze(1).expand(-1, x['state_dim'])
+        link_id = x['link_id'].unsqueeze(1).expand(-1, self.feature_size)
+        path_seq = torch.stack([x['path_id'], x['sequence']], dim=1)
+        max_len = max(x['sequence']) + 1
 
         for _ in range(self.t):
-            main_edges = torch.gather(state, 0, first)
-            neigh_edges = torch.gather(state, 0, second)
-            edges_concat = torch.cat((main_edges, neigh_edges), 1)
-            m = self.message(edges_concat)
+            #main_edges = torch.gather(state, 0, first)
+            #neigh_edges = torch.gather(state, 0, second)
+            link_to_path = torch.gather(link_state, 0, link_id)
+            message_input = torch.zeros((x['num_actions'], max_len, self.feature_size),
+                                        device=link_to_path.device, dtype=torch.float32)
+            message_input[path_seq[:, 0], path_seq[:, 1]] = link_to_path
+            #edges_concat = torch.cat((main_edges, neigh_edges), 1)
+            m, new_p_s = self.message(message_input, path_state.unsqueeze(0))
 
-            m = torch.zeros(state.shape, dtype=m.dtype, device=state.device).scatter_add_(0, second, m)
-            state = self.update(m, state)
+            path_state = new_p_s.squeeze(0)
 
-        feature = torch.zeros((x['num_actions'], x['state_dim']), dtype=state.dtype,
-                              device=state.device).scatter_add_(0, graph_id, state)
-        output = self.out_layer(self.readout(feature))
+            m = torch.zeros(link_state.shape, device=link_state.device).scatter_add_(0, link_id, m[list(path_seq.T)])
+            #m = torch.zeros(state.shape, dtype=m.dtype, device=state.device).scatter_add_(0, second, m)
+            link_state = self.update(m, link_state)
+
+        #feature = torch.zeros((x['num_actions'], x['state_dim']), dtype=state.dtype,
+                              #device=state.device).scatter_add_(0, graph_id, state)
+        output = self.out_layer(self.readout(path_state))
 
         return output
 
