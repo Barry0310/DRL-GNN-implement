@@ -113,7 +113,7 @@ if __name__ == '__main__':
 
     counter_store_model = 0
     max_reward = -1000
-    AC_policy = PPOAC(hyper_parameter, device=torch.device("cpu"))
+    AC_policy = PPOAC(hyper_parameter)
     for iters in range(100):
 
         if iters * hyper_parameter['episode'] >= hyper_parameter['entropy_step']:

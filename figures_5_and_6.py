@@ -70,9 +70,9 @@ if __name__ == "__main__":
     if not os.path.exists(path_to_dir):
         os.makedirs(path_to_dir)
 
-    dd_Eli = pd.DataFrame(columns=['DRL','LS','Enero','Topologies'])
-    dd_Janet = pd.DataFrame(columns=['DRL','LS','Enero','Topologies'])
-    dd_Hurricane = pd.DataFrame(columns=['DRL','LS','Enero','Topologies'])
+    dd_Eli = pd.DataFrame(columns=['AC','LS','Enero','Topologies'])
+    dd_Janet = pd.DataFrame(columns=['AC','LS','Enero','Topologies'])
+    dd_Hurricane = pd.DataFrame(columns=['AC','LS','Enero','Topologies'])
 
     # Iterate over all topologies and evaluate our DRL agent on all TMs
     for folder in folders:
