@@ -502,6 +502,7 @@ if __name__ == "__main__":
     DRL_SP_Agent = PPOAC(hyper_parameter)
     model_dir = "./models" + differentiation_str
     DRL_SP_Agent.actor.load_state_dict(torch.load(model_dir + f"/actor_{model_id}.pt"))
+    DRL_SP_Agent.actor.eval()
     # Restore variables on creation if a checkpoint exists.
     print("Restored DRL_SP model ", f"/actor_{model_id}.pt")
 
