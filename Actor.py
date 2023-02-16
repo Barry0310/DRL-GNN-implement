@@ -40,31 +40,25 @@ class Actor(nn.Module):
     def forward(self, x):
         link_state = x['link_state']
         path_state = x['path_state']
-        #first = x['first'].unsqueeze(1).expand(-1, x['state_dim'])
-        #second = x['second'].unsqueeze(1).expand(-1, x['state_dim'])
-        #graph_id = x['graph_id'].unsqueeze(1).expand(-1, x['state_dim'])
+
         link_id = x['link_id'].unsqueeze(1).expand(-1, self.feature_size)
         path_seq = torch.stack([x['path_id'], x['sequence']], dim=1)
         max_len = max(x['sequence']) + 1
 
         for _ in range(self.t):
-            #main_edges = torch.gather(state, 0, first)
-            #neigh_edges = torch.gather(state, 0, second)
             link_to_path = torch.gather(link_state, 0, link_id)
             message_input = torch.zeros((x['num_actions'], max_len, self.feature_size),
                                         device=link_to_path.device, dtype=torch.float32)
             message_input[path_seq[:, 0], path_seq[:, 1]] = link_to_path
-            #edges_concat = torch.cat((main_edges, neigh_edges), 1)
+
             m, new_p_s = self.message(message_input, path_state.unsqueeze(0))
 
             path_state = new_p_s.squeeze(0)
 
             m = torch.zeros(link_state.shape, device=link_state.device).scatter_add_(0, link_id, m[list(path_seq.T)])
-            #m = torch.zeros(state.shape, dtype=m.dtype, device=state.device).scatter_add_(0, second, m)
+
             link_state = self.update(m, link_state)
 
-        #feature = torch.zeros((x['num_actions'], x['state_dim']), dtype=state.dtype,
-                              #device=state.device).scatter_add_(0, graph_id, state)
         output = self.out_layer(self.readout(path_state))
 
         return output

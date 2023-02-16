@@ -42,12 +42,8 @@ class PPOAC:
 
         middle_point_list = env.src_dst_k_middlepoints[str(src) + ':' + str(dst)]
         for mid in range(len(middle_point_list)):
-            #env.mark_action_sp(src, middle_point_list[mid], src, dst)
-            #if middle_point_list[mid] != dst:
-                #env.mark_action_sp(middle_point_list[mid], dst, src, dst)
             features = self.actor_get_graph_features(env, src, dst, middle_point_list[mid])
             list_k_features.append(features)
-            #env.edge_state[:, 2] = 0
 
         path_id = []
         sequence = []
@@ -72,20 +68,12 @@ class PPOAC:
 
         path_state = torch.stack([v['path_state'] for v in list_k_features], dim=0)
 
-        #graph_ids = [torch.full([list_k_features[it]['link_state'].shape[0]], it) for it in range(len(list_k_features))]
-
-        #first_offset = self.old_cummax(list_k_features, lambda v: v['first'])
-        #second_offset = self.old_cummax(list_k_features, lambda v: v['second'])
         tensor = {
-            #'graph_id': torch.cat([v for v in graph_ids], dim=0).to(self.device),
             'link_state': link_state.to(self.device),
             'path_state': path_state.to(self.device),
-            #'first': torch.cat([v['first'] + m for v, m in zip(list_k_features, first_offset)], dim=0,).to(self.device),
-            #'second': torch.cat([v['second'] + m for v, m in zip(list_k_features, second_offset)], dim=0).to(self.device),
             'path_id': torch.tensor(path_id).to(self.device),
             'sequence': torch.tensor(sequence).to(self.device),
             'link_id': torch.tensor(link_id).to(self.device),
-            #'state_dim': self.feature_size,
             'num_actions': len(middle_point_list),
         }
         q_values = self.actor(tensor)
@@ -107,16 +95,9 @@ class PPOAC:
 
     def actor_get_graph_features(self, env, src, dst, mid):
         temp = {
-            #'num_edges': env.numEdges,
-            #'length': env.firstTrueSize,
-            #'capacity': env.link_capacity_feature,
-            #'bw_allocated': env.edge_state[:, 2],
-            #'utilization': np.divide(env.edge_state[:, 0], env.edge_state[:, 1]),
             'path': self.get_path(env, src, mid),
             'demand': [env.TM[src][dst]],
             'link_capacity': env.edge_state[:, 1],
-            #'first': env.first,
-            #'second': env.second
         }
 
         if mid != dst:
@@ -126,16 +107,6 @@ class PPOAC:
 
         path_state = torch.nn.functional.pad(torch.tensor(temp['demand'], dtype=torch.float32),
                                              (0, self.feature_size - 1), 'constant')
-
-        #temp['utilization'] = torch.reshape(torch.tensor(temp['utilization'][0:temp['num_edges']], dtype=torch.float32),
-                                            #(temp['num_edges'], 1))
-        #temp['capacity'] = torch.reshape(torch.tensor(temp['capacity'][0:temp['num_edges']], dtype=torch.float32),
-                                         #(temp['num_edges'], 1))
-        #temp['bw_allocated'] = torch.reshape(torch.tensor(temp['bw_allocated'][0:temp['num_edges']],
-                                                          #dtype=torch.float32), (temp['num_edges'], 1))
-
-        #hidden_states = torch.cat([temp['utilization'], temp['capacity']], dim=1)
-        #link_state = torch.nn.functional.pad(hidden_states, (0, self.feature_size - 2), 'constant')
 
         inputs = {'path': temp['path'], 'path_state': path_state}
 

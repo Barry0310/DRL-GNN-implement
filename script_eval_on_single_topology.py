@@ -15,7 +15,7 @@ sys.setrecursionlimit(2000)
 # This script is used to evaluate a DRL agent on a single instance of a topology and a TM 
 # from the repetita dataset. The eval_on_single_topology.py script calls this script for each TM
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 
 ENV_MIDDROUT_AGENT_SP = 'GraphEnv-v16'
 ENV_SIMM_ANEAL_AGENT = 'GraphEnv-v15'
