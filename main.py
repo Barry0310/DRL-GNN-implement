@@ -63,7 +63,6 @@ if __name__ == '__main__':
         'clip_value': 0.5,
         'entropy_beta': 0.01,
         'entropy_step': 60,
-        'l2_regular': 0.0001,
         'buffer_size': num_samples_top1 + num_samples_top2 + num_samples_top3,
         'update_times': 8
     }

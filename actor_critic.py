@@ -30,13 +30,6 @@ class PPOAC:
         self.actor.to(self.device)
         self.critic.to(self.device)
 
-    def old_cummax(self, alist, extractor):
-        maxes = torch.tensor([torch.amax(extractor(v)) + 1 for v in alist])
-        cummaxes = [torch.zeros_like(maxes[0])]
-        for i in range(len(maxes) - 1):
-            cummaxes.append(torch.sum(maxes[0:i + 1]))
-        return torch.tensor(cummaxes)
-
     def predict(self, env, src, dst):
         list_k_features = []
 
