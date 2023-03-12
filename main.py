@@ -1,5 +1,5 @@
 import torch
-from actor_critic import PPOAC
+from SACD import SACD
 import gym
 import gym_graph
 import random
@@ -22,7 +22,7 @@ if __name__ == '__main__':
     torch.cuda.manual_seed_all(1)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-    experiment_letter = "_B_PATH_LINK_TEST"
+    experiment_letter = "_B_SAC"
     take_critic_demands = True  # True if we want to take the demands from the most critical links, True if we want to take the largest
     percentage_demands = 15  # Percentage of demands that will be used in the optimization
     str_perctg_demands = str(percentage_demands)
@@ -30,12 +30,6 @@ if __name__ == '__main__':
 
     max_iters = 150
     EVALUATION_EPISODES = 20  # As the demand selection is deterministic, it doesn't make sense to evaluate multiple times over the same TM
-
-    num_samples_top1 = int(np.ceil(percentage_demands * 380)) * 5
-    num_samples_top2 = int(np.ceil(percentage_demands * 506)) * 4
-    num_samples_top3 = int(np.ceil(percentage_demands * 272)) * 6
-
-    num_samples_top = [num_samples_top1, num_samples_top2, num_samples_top3]
 
     differentiation_str = "Enero_3top_" + str_perctg_demands + experiment_letter
     model_dir = "./models" + differentiation_str
@@ -55,16 +49,12 @@ if __name__ == '__main__':
         'readout_units': 20,
         'episode': 20,
         'lr': 0.0002,
-        'lr_decay_rate': 0.96,
-        'lr_decay_step': 60,
-        'mini_batch': 55,
-        'gae_gamma': 0.99,
-        'gae_lambda': 0.95,
-        'clip_value': 0.5,
-        'entropy_beta': 0.01,
-        'entropy_step': 60,
-        'buffer_size': num_samples_top1 + num_samples_top2 + num_samples_top3,
-        'update_times': 8
+        'gamma': 0.99,
+        'alpha': 0.2,
+        'batch_size': 55,
+        'buffer_size': 10000,
+        'update_freq': 100,
+        'update_times': 10,
     }
 
     dataset_root_folder = "../Enero_datasets/dataset_sing_top/data/results_my_3_tops_unif_05-1/"
@@ -110,78 +100,60 @@ if __name__ == '__main__':
 
     env_eval = [env_eval1, env_eval2, env_eval3]
 
+    max_a_dim = 0
+    for env in env_eval:
+        for action_space in env.src_dst_k_middlepoints.items():
+            max_a_dim = max(max_a_dim, len(action_space[1]))
+    hyper_parameter['max_a_dim'] = max_a_dim
+
     counter_store_model = 0
+    total_step = 0
+    actor_loss, critic_loss = 0, 0
     max_reward = -1000
-    AC_policy = PPOAC(hyper_parameter)
+    AC_policy = SACD(hyper_parameter)
     for iters in range(100):
 
-        if iters * hyper_parameter['episode'] >= hyper_parameter['entropy_step']:
-            AC_policy.entropy_beta = hyper_parameter['entropy_beta'] / 10
+        #if iters * hyper_parameter['episode'] >= hyper_parameter['entropy_step']:
+            #AC_policy.entropy_beta = hyper_parameter['entropy_beta'] / 10
         for e in range(hyper_parameter['episode']):
 
             print(f"Episode {iters*hyper_parameter['episode']+e}")
 
-            critic_features = []
-            tensors = []
-            actions = []
-            values = []
-            masks = []
-            rewards = []
-            actions_probs = []
-
             total_num_samples = 0
 
-            timer_a = time.time()
-            AC_policy.actor.train()
-            AC_policy.critic.train()
+            #timer_a = time.time()
 
             for topo in range(len(env_training)):
-                print(f"topo {topo+1}")
-                number_samples_reached = False
-                total_num_samples += num_samples_top[topo]
+                #print(f"topo {topo+1}")
                 tm_id = random.sample(training_tm_ids, 1)[0]
-                while not number_samples_reached:
-                    demand, src, dst = env_training[topo].reset(tm_id=tm_id)
-                    while True:
-                        action_dist, tensor = AC_policy.predict(env_training[topo], src, dst)
+                demand, src, dst = env_training[topo].reset(tm_id=tm_id)
+                while True:
+                    action_dist, tensor = AC_policy.predict(env_training[topo], src, dst, demand)
 
-                        critic_feature = AC_policy.critic_get_graph_features(env_training[topo])
-                        value = AC_policy.critic(critic_feature)[0]
+                    action = np.random.choice(len(action_dist), p=action_dist.cpu().detach().numpy())
+                    reward, done, _, demand, src, dst, _, _, _ = env_training[topo].step(action, demand, src, dst)
+                    mask = not done
 
-                        action = np.random.choice(len(action_dist), p=action_dist.cpu().detach().numpy())
-                        action_one_hot = torch.nn.functional.one_hot(torch.tensor(action), num_classes=len(action_dist))
-                        reward, done, _, demand, src, dst, _, _, _ = env_training[topo].step(action, demand, src, dst)
-                        mask = not done
+                    AC_policy.add_exp(env_training[topo], tensor, src, dst, demand, action, reward, mask)
 
-                        tensors.append(tensor)
-                        critic_features.append(critic_feature)
-                        actions.append(action_one_hot)
-                        values.append(value.cpu().detach())
-                        masks.append(mask)
-                        rewards.append(reward)
-                        actions_probs.append(action_dist)
+                    total_step += 1
 
-                        if len(tensors) == total_num_samples:
-                            number_samples_reached = True
-                            break
+                    if total_step >= hyper_parameter['update_freq'] and total_step%hyper_parameter['update_freq'] == 0:
+                        for _ in range(hyper_parameter['update_times']):
+                            actor_loss, critic_loss = AC_policy.train()
 
-                        if done:
-                            break
+                    if done:
+                        break
 
-            critic_feature = AC_policy.critic_get_graph_features(env_training[-1])
-            value = AC_policy.critic(critic_feature)[0]
-            values.append(value.cpu().detach())
-            timer_b = time.time()
-            print("collect_data", timer_b - timer_a, "sec")
+            #timer_b = time.time()
+            #print("collect_data", timer_b - timer_a, "sec")
 
-            timer_a = time.time()
-            returns, advantages = AC_policy.compute_gae(values, masks, rewards)
-            actor_loss, critic_loss = AC_policy.update(actions, actions_probs, tensors, critic_features, returns,
-                                                       advantages)
-            if AC_policy.scheduler.get_last_lr()[0] > 0.0001:
-                AC_policy.scheduler.step()
-            timer_b = time.time()
-            print("update", timer_b - timer_a, "sec")
+            #timer_a = time.time()
+
+            #if AC_policy.scheduler.get_last_lr()[0] > 0.0001:
+                #AC_policy.scheduler.step()
+            #timer_b = time.time()
+            #print("update", timer_b - timer_a, "sec")
 
             fileLogs.write("a," + str(actor_loss.cpu().detach().numpy()) + ",\n")
             fileLogs.write("c," + str(critic_loss.cpu().detach().numpy()) + ",\n")
@@ -193,9 +165,6 @@ if __name__ == '__main__':
             min_link_utis = np.zeros(EVALUATION_EPISODES * 3)
             uti_stds = np.zeros(EVALUATION_EPISODES * 3)
 
-            AC_policy.actor.eval()
-            AC_policy.critic.eval()
-
             timer_a = time.time()
             for topo in range(len(env_eval)):
                 for tm_id in range(EVALUATION_EPISODES):
@@ -203,7 +172,8 @@ if __name__ == '__main__':
                     total_reward = 0
                     posi = EVALUATION_EPISODES * topo + tm_id
                     while True:
-                        action_dist, _ = AC_policy.predict(env_eval[topo], src, dst)
+                        with torch.no_grad():
+                            action_dist, _ = AC_policy.predict(env_eval[topo], src, dst, demand)
                         action = torch.argmax(action_dist)
 
                         reward, done, error_eval_links, demand, src, dst, max_link_uti, min_link_uti, uti_std = \
@@ -225,9 +195,9 @@ if __name__ == '__main__':
             fileLogs.write("+," + str(np.mean(error_links)) + ",\n")
             fileLogs.write("<," + str(np.amax(max_link_utis)) + ",\n")
             fileLogs.write(">," + str(np.amax(min_link_utis)) + ",\n")
-            fileLogs.write("ENTR," + str(AC_policy.entropy_beta) + ",\n")
+            fileLogs.write("ENTR," + str(AC_policy.alpha) + ",\n")
             fileLogs.write("REW," + str(eval_mean_reward) + ",\n")
-            fileLogs.write("lr," + str(AC_policy.scheduler.get_last_lr()[0]) + ",\n")
+            fileLogs.write("lr," + str(0.0002) + ",\n")
 
             if eval_mean_reward > max_reward:
                 max_reward = eval_mean_reward
