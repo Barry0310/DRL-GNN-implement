@@ -9,7 +9,7 @@ import time as tt
 import torch
 import pickle
 import sys
-from actor_critic import PPOAC
+from SACD import SACD
 sys.setrecursionlimit(2000)
 
 # This script is used to evaluate a DRL agent on a single instance of a topology and a TM 
@@ -495,7 +495,7 @@ if __name__ == "__main__":
     # Set to True f we want to take the top X% of the 5 most loaded links
     env_DRL_SP.top_K_critical_demands = True
 
-    DRL_SP_Agent = PPOAC(hyper_parameter)
+    DRL_SP_Agent = SACD(hyper_parameter)
     model_dir = "./models" + differentiation_str
     DRL_SP_Agent.actor.load_state_dict(torch.load(model_dir + f"/actor_{model_id}.pt"))
     DRL_SP_Agent.actor.eval()
