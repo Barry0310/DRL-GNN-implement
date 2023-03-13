@@ -50,7 +50,7 @@ def play_middRout_games_sp(tm_id, env_middRout_sp, agent, timesteps):
     start = tt.time()
     time_start_DRL = start
     while 1:
-        action_dist, tensor = agent.predict(env_middRout_sp, source, destination)
+        action_dist, tensor = agent.predict(env_middRout_sp, source, destination, demand)
         action = torch.argmax(action_dist)
         
         reward, done, error_eval_links, demand, source, destination, maxLinkUti, minLinkUti, utiStd = env_middRout_sp.step(action, demand, source, destination)
@@ -456,17 +456,13 @@ if __name__ == "__main__":
         'readout_units': 20,
         'episode': 20,
         'lr': 0.0002,
-        'lr_decay_rate': 0.96,
-        'lr_decay_step': 60,
-        'mini_batch': 55,
-        'gae_gamma': 0.99,
-        'gae_lambda': 0.95,
-        'clip_value': 0.5,
-        'entropy_beta': 0.01,
-        'entropy_step': 60,
-        'l2_regular': 0.0001,
-        'buffer_size': 0,
-        'update_times': 8
+        'gamma': 0.99,
+        'alpha': 0.2,
+        'batch_size': 55,
+        'buffer_size': 10000,
+        'update_freq': 100,
+        'update_times': 10,
+        'max_a_dim': 20
     }
 
     # Parse logs and get best model

@@ -113,18 +113,11 @@ if __name__ == '__main__':
     AC_policy = SACD(hyper_parameter)
     for iters in range(100):
 
-        #if iters * hyper_parameter['episode'] >= hyper_parameter['entropy_step']:
-            #AC_policy.entropy_beta = hyper_parameter['entropy_beta'] / 10
         for e in range(hyper_parameter['episode']):
 
             print(f"Episode {iters*hyper_parameter['episode']+e}")
 
-            total_num_samples = 0
-
-            #timer_a = time.time()
-
             for topo in range(len(env_training)):
-                #print(f"topo {topo+1}")
                 tm_id = random.sample(training_tm_ids, 1)[0]
                 demand, src, dst = env_training[topo].reset(tm_id=tm_id)
                 while True:
@@ -145,16 +138,6 @@ if __name__ == '__main__':
                     if done:
                         break
 
-            #timer_b = time.time()
-            #print("collect_data", timer_b - timer_a, "sec")
-
-            #timer_a = time.time()
-
-            #if AC_policy.scheduler.get_last_lr()[0] > 0.0001:
-                #AC_policy.scheduler.step()
-            #timer_b = time.time()
-            #print("update", timer_b - timer_a, "sec")
-
             fileLogs.write("a," + str(actor_loss.cpu().detach().numpy()) + ",\n")
             fileLogs.write("c," + str(critic_loss.cpu().detach().numpy()) + ",\n")
             fileLogs.flush()
@@ -165,7 +148,6 @@ if __name__ == '__main__':
             min_link_utis = np.zeros(EVALUATION_EPISODES * 3)
             uti_stds = np.zeros(EVALUATION_EPISODES * 3)
 
-            timer_a = time.time()
             for topo in range(len(env_eval)):
                 for tm_id in range(EVALUATION_EPISODES):
                     demand, src, dst = env_eval[topo].reset(tm_id=tm_id)
@@ -188,8 +170,6 @@ if __name__ == '__main__':
                     min_link_utis[posi] = min_link_uti
                     uti_stds[posi] = uti_std
 
-            timer_b = time.time()
-            print("eval", timer_b - timer_a, "sec")
             eval_mean_reward = np.mean(rewards_test)
             fileLogs.write(";," + str(np.mean(uti_stds)) + ",\n")
             fileLogs.write("+," + str(np.mean(error_links)) + ",\n")
