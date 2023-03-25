@@ -53,7 +53,7 @@ if __name__ == '__main__':
         'batch_size': 64,
         'buffer_size': 16000,
         'update_freq': 100,
-        'update_times': 8,
+        'update_times': 10,
     }
 
     dataset_root_folder = "../Enero_datasets/dataset_sing_top/data/results_my_3_tops_unif_05-1/"
@@ -112,9 +112,9 @@ if __name__ == '__main__':
     AC_policy = SACD(hyper_parameter)
     for iters in range(100):
 
-        for e in range(hyper_parameter['episode']):
+        for e in range(20):
 
-            print(f"Episode {iters*hyper_parameter['episode']+e}")
+            print(f"Episode {iters*20+e}")
 
             for topo in range(len(env_training)):
                 tm_id = random.sample(training_tm_ids, 1)[0]

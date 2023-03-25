@@ -18,7 +18,7 @@ class SACD:
         self.batch_size = hp['batch_size']
 
         self.alpha = hp['alpha']
-        self.target_entropy = 0.9 * (-np.log(1 / hp['max_a_dim']))  # H(discrete)>0
+        self.target_entropy = 0.5 * (-np.log(1 / hp['max_a_dim']))  # H(discrete)>0
         self.log_alpha = torch.tensor(np.log(self.alpha), dtype=torch.float32, requires_grad=True, device=device)
         self.alpha_optimizer = torch.optim.AdamW([self.log_alpha], lr=hp['lr'])
 
@@ -43,8 +43,7 @@ class SACD:
         self.replay_buffer.append(exp)
 
     def sample(self):
-        ind = random.sample(range(len(self.replay_buffer)), self.batch_size)
-        batch_data = [self.replay_buffer[i] for i in ind]
+        batch_data = random.sample(self.replay_buffer, self.batch_size)
 
         return batch_data
 
@@ -178,7 +177,7 @@ class SACD:
         # ------------------------------------------ Train Alpha ----------------------------------------#
         with torch.no_grad():
             H_mean = entropy/self.batch_size
-        alpha_loss = self.log_alpha * (H_mean - self.target_entropy)
+        alpha_loss = self.log_alpha.exp() * (H_mean - self.target_entropy)
 
         self.alpha_optimizer.zero_grad()
         alpha_loss.backward()

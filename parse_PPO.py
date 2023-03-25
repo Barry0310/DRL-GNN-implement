@@ -79,7 +79,7 @@ if __name__ == "__main__":
                 min_link_uti.append(float(arrayLine[1]))
             elif arrayLine[0]=="a":
                 actor_loss.append(float(arrayLine[1]))
-            elif arrayLine[0]=="lr":
+            elif arrayLine[0]=="ENTR":
                 learning_rate.append(float(arrayLine[1]))
             elif arrayLine[0]==";":
                 avg_std.append(float(arrayLine[1]))
@@ -112,7 +112,7 @@ if __name__ == "__main__":
         print("DRL MAX reward: ", np.amax(avg_rewards))
         plt.xlabel("Episodes")
         lgd = plt.legend(loc="lower left", bbox_to_anchor=(0.07, -0.22), ncol=2, fancybox=True, shadow=True)
-        plt.title("GNN+AC Testing score")
+        plt.title("GNN+SAC Testing score")
         plt.ylabel("Maximum link utilization")
         #plt.yscale('log')
         plt.savefig(path_to_dir+"MaxLinkUti" + differentiation_str, bbox_extra_artists=(lgd,), bbox_inches='tight')
@@ -120,35 +120,35 @@ if __name__ == "__main__":
 
         plt.plot(min_link_uti)
         plt.xlabel("Episodes")
-        plt.title("GNN+AC Testing score")
+        plt.title("GNN+SAC Testing score")
         plt.ylabel("Minimum link utilization")
         plt.savefig(path_to_dir+"MinLinkUti" + differentiation_str)
         plt.close()
 
         plt.plot(avg_rewards)
         plt.xlabel("Episodes")
-        plt.title("GNN+AC Testing score")
+        plt.title("GNN+SAC Testing score")
         plt.ylabel("Average reward")
         plt.savefig(path_to_dir+"AvgReward" + differentiation_str)
         plt.close()
 
         plt.plot(learning_rate)
         plt.xlabel("Episodes")
-        plt.title("GNN+AC Testing score")
-        plt.ylabel("Learning rate")
-        plt.savefig(path_to_dir+"Lr_" + differentiation_str)
+        plt.title("GNN+SAC Testing score")
+        plt.ylabel("alpha")
+        plt.savefig(path_to_dir+"alpha_" + differentiation_str)
         plt.close()
 
         plt.plot(error_links)
         plt.xlabel("Episodes")
-        plt.title("GNN+AC Testing score")
+        plt.title("GNN+SAC Testing score")
         plt.ylabel("Error link (sum_total_TM/num_links")
         plt.savefig(path_to_dir+"ErrorLinks" + differentiation_str)
         plt.close()
 
         plt.plot(avg_std)
         plt.xlabel("Episodes")
-        plt.title("GNN+AC Testing score")
+        plt.title("GNN+SAC Testing score")
         plt.ylabel("Avg std of link utilization")
         plt.savefig(path_to_dir+"AvgStdUti" + differentiation_str)
         plt.close()
