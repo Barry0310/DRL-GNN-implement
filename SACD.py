@@ -188,4 +188,4 @@ class SACD:
         for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
             target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 
-        return a_loss, q_loss
+        return a_loss.cpu().detach().numpy(), q_loss.cpu().detach().numpy()

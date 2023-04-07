@@ -47,13 +47,14 @@ if __name__ == '__main__':
         'feature_size': 20,
         't': 5,
         'readout_units': 20,
-        'lr': 0.0002,
+        'lr': 0.0003,
         'gamma': 0.99,
-        'alpha': 0.2,
-        'batch_size': 64,
-        'buffer_size': 16000,
+        'alpha': 0.1,
+        'batch_size': 1500,
+        'buffer_size': 200000,
+        'buffer_threshold': 4000,
         'update_freq': 100,
-        'update_times': 10,
+        'update_times': 1,
     }
 
     dataset_root_folder = "../Enero_datasets/dataset_sing_top/data/results_my_3_tops_unif_05-1/"
@@ -119,6 +120,7 @@ if __name__ == '__main__':
             for topo in range(len(env_training)):
                 tm_id = random.sample(training_tm_ids, 1)[0]
                 demand, src, dst = env_training[topo].reset(tm_id=tm_id)
+                timer_a = time.time()
                 while True:
                     action_dist, tensor = AC_policy.predict(env_training[topo], src, dst, demand)
 
@@ -130,16 +132,20 @@ if __name__ == '__main__':
 
                     total_step += 1
 
-                    if total_step >= hyper_parameter['update_freq'] and total_step%hyper_parameter['update_freq'] == 0:
+                    if total_step >= hyper_parameter['buffer_threshold'] and total_step % hyper_parameter['update_freq']==0:
                         for _ in range(hyper_parameter['update_times']):
                             actor_loss, critic_loss = AC_policy.train()
 
                     if done:
                         break
+                timer_b = time.time()
+                print("topo ", topo, timer_b - timer_a, "sec")
+            print(total_step)
 
-            fileLogs.write("a," + str(actor_loss.cpu().detach().numpy()) + ",\n")
-            fileLogs.write("c," + str(critic_loss.cpu().detach().numpy()) + ",\n")
-            fileLogs.flush()
+            if actor_loss != None and critic_loss != None:
+                fileLogs.write("a," + str(actor_loss) + ",\n")
+                fileLogs.write("c," + str(critic_loss) + ",\n")
+                fileLogs.flush()
 
             rewards_test = np.zeros(EVALUATION_EPISODES * 3)
             error_links = np.zeros(EVALUATION_EPISODES * 3)
