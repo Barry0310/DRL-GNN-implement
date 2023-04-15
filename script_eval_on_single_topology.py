@@ -508,7 +508,7 @@ if __name__ == "__main__":
     # We can also use simulated annealing but it is going to take a while
     max_link_uti_sim_annealing, optim_cost_SA = 1,1 #play_sp_simulated_annealing_games(tm_id)
     
-    max_link_uti_sp_hill_climb, optim_cost_HILL = play_sp_hill_climbing_games(tm_id)
+    max_link_uti_sp_hill_climb, optim_cost_HILL = 1,1 #play_sp_hill_climbing_games(tm_id)
     
     max_link_uti_SAP, optim_cost_SAP = 1, 1 #play_sap_games(tm_id)
     

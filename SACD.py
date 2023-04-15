@@ -149,6 +149,7 @@ class SACD:
         q_loss /= self.batch_size
         self.c_optimizer.zero_grad()
         q_loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=0.5)
         self.c_optimizer.step()
 
         # ------------------------------------------ Train Actor ----------------------------------------#
@@ -165,10 +166,11 @@ class SACD:
             with torch.no_grad():
                 q1_all, q2_all = self.critic(batch_data[i]['st'])
             min_q_all = torch.min(q1_all, q2_all)
-            a_loss += (probs * (self.alpha * log_probs - min_q_all)).mean()
+            a_loss += torch.sum(probs * (self.alpha * log_probs - min_q_all))
         a_loss /= self.batch_size
         self.a_optimizer.zero_grad()
         a_loss.backward()
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=0.5)
         self.a_optimizer.step()
 
         for params in self.critic.parameters():

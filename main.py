@@ -47,14 +47,13 @@ if __name__ == '__main__':
         'feature_size': 20,
         't': 5,
         'readout_units': 20,
-        'lr': 0.0003,
+        'lr': 0.0002,
         'gamma': 0.99,
-        'alpha': 0.1,
-        'batch_size': 1500,
+        'alpha': 1.0,
+        'batch_size': 64,
         'buffer_size': 200000,
-        'buffer_threshold': 4000,
-        'update_freq': 100,
-        'update_times': 1,
+        'buffer_threshold': 5000,
+        'update_freq': 4,
     }
 
     dataset_root_folder = "../Enero_datasets/dataset_sing_top/data/results_my_3_tops_unif_05-1/"
@@ -133,8 +132,7 @@ if __name__ == '__main__':
                     total_step += 1
 
                     if total_step >= hyper_parameter['buffer_threshold'] and total_step % hyper_parameter['update_freq']==0:
-                        for _ in range(hyper_parameter['update_times']):
-                            actor_loss, critic_loss = AC_policy.train()
+                        actor_loss, critic_loss = AC_policy.train()
 
                     if done:
                         break
