@@ -49,11 +49,11 @@ if __name__ == '__main__':
         'readout_units': 20,
         'lr': 0.0002,
         'gamma': 0.99,
-        'alpha': 1.0,
-        'batch_size': 64,
+        'alpha': 0.25,
+        'batch_size': 1500,
         'buffer_size': 200000,
         'buffer_threshold': 5000,
-        'update_freq': 4,
+        'update_freq': 100,
     }
 
     dataset_root_folder = "../Enero_datasets/dataset_sing_top/data/results_my_3_tops_unif_05-1/"
