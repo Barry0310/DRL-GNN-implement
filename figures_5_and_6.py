@@ -39,6 +39,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    enero = "SP_3top_15_B_NEW"
     differentiation_str = args.d[0]
 
     drl_top1_uti = []
@@ -70,14 +71,39 @@ if __name__ == "__main__":
     if not os.path.exists(path_to_dir):
         os.makedirs(path_to_dir)
 
-    dd_Eli = pd.DataFrame(columns=['AC','LS','AC+LS','Topologies'])
-    dd_Janet = pd.DataFrame(columns=['AC','LS','AC+LS','Topologies'])
-    dd_Hurricane = pd.DataFrame(columns=['AC','LS','AC+LS','Topologies'])
+    dd_Eli = pd.DataFrame(columns=['SAC', 'ENERO(DRL)', 'LS', 'ENERO', 'Topologies'])
+    dd_Janet = pd.DataFrame(columns=['SAC', 'ENERO(DRL)', 'LS', 'ENERO', 'Topologies'])
+    dd_Hurricane = pd.DataFrame(columns=['SAC', 'ENERO(DRL)', 'LS', 'ENERO', 'Topologies'])
 
     # Iterate over all topologies and evaluate our DRL agent on all TMs
     for folder in folders:
-        drl_eval_res_folder = folder+differentiation_str+'/'
+        enero_eval_res_folder = folder + enero + '/'
         topology_eval_name = folder.split('NEW_')[1].split('/')[0]
+        for subdir, dirs, files in os.walk(enero_eval_res_folder):
+            it = 0
+            for file in files:
+                if file.endswith((".pckl")):
+                    results = []
+                    path_to_pckl_rewards = enero_eval_res_folder + topology_eval_name + '/'
+                    with open(path_to_pckl_rewards+file, 'rb') as f:
+                        results = pickle.load(f)
+                    if folder==folders[0]:
+                        dd_Eli.loc[it] = [0, results[9],results[7],results[3],topology_eval_name]
+                        cost_ls_top1.append(results[15])
+                        cost_drl_top1.append(results[14])
+                        cost_enero_top1.append(results[16])
+                    elif folder==folders[1]:
+                        dd_Janet.loc[it] = [0, results[9],results[7],results[3],topology_eval_name]
+                        cost_ls_top2.append(results[15])
+                        cost_drl_top2.append(results[14])
+                        cost_enero_top2.append(results[16])
+                    else:
+                        dd_Hurricane.loc[it] = [0, results[9],results[7],results[3],topology_eval_name]
+                        cost_ls_top3.append(results[15])
+                        cost_drl_top3.append(results[14])
+                        cost_enero_top3.append(results[16])
+                    it += 1
+        drl_eval_res_folder = folder + differentiation_str + '/'
         for subdir, dirs, files in os.walk(drl_eval_res_folder):
             it = 0
             for file in files:
@@ -87,17 +113,17 @@ if __name__ == "__main__":
                     with open(path_to_pckl_rewards+file, 'rb') as f:
                         results = pickle.load(f)
                     if folder==folders[0]:
-                        dd_Eli.loc[it] = [results[9],results[7],results[3],topology_eval_name]
+                        dd_Eli.loc[it, 'SAC'] = results[9]
                         cost_ls_top1.append(results[15])
                         cost_drl_top1.append(results[14])
                         cost_enero_top1.append(results[16])
                     elif folder==folders[1]:
-                        dd_Janet.loc[it] = [results[9],results[7],results[3],topology_eval_name]
+                        dd_Janet.loc[it, 'SAC'] = results[9]
                         cost_ls_top2.append(results[15])
                         cost_drl_top2.append(results[14])
                         cost_enero_top2.append(results[16])
                     else:
-                        dd_Hurricane.loc[it] = [results[9],results[7],results[3],topology_eval_name]
+                        dd_Hurricane.loc[it, 'SAC'] = results[9]
                         cost_ls_top3.append(results[15])
                         cost_drl_top3.append(results[14])
                         cost_enero_top3.append(results[16])
@@ -143,7 +169,7 @@ if __name__ == "__main__":
 
  
     # Define some hatches
-    hatches = cycle(['-', '|', ''])
+    hatches = cycle(['-', '|', '', '*'])
     cdf = pd.concat([dd_Eli,dd_Janet,dd_Hurricane])
     mdf = pd.melt(cdf, id_vars=['Topologies'], var_name=['Topology'])      # MELT
     ax = sns.boxplot(x="Topologies", y="value", hue="Topology", data=mdf, palette="mako")  # RUN PLOT

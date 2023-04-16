@@ -49,8 +49,8 @@ def play_middRout_games_sp(tm_id, env_middRout_sp, agent):
     list_of_demands_to_change = env_middRout_sp.list_eligible_demands
     start = tt.time()
     while 1:
-        action_dist, tensor = agent.predict(env_middRout_sp, source, destination)
-        action = np.argmax(action_dist.detach())
+        action_dist, tensor = agent.predict(env_middRout_sp, source, destination, demand)
+        action = torch.argmax(action_dist.detach())
         
         reward, done, error_eval_links, demand, source, destination, maxLinkUti, minLinkUti, utiStd = env_middRout_sp.step(action, demand, source, destination)
         rewardAddTest += reward
@@ -498,6 +498,7 @@ if __name__ == "__main__":
         'buffer_size': 200000,
         'buffer_threshold': 5000,
         'update_freq': 100,
+        'max_a_dim': 1
     }
 
     DRL_SP_Agent = SACD(hyper_parameter)

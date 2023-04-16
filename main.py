@@ -100,10 +100,13 @@ if __name__ == '__main__':
     env_eval = [env_eval1, env_eval2, env_eval3]
 
     max_a_dim = 0
+    a_dim = []
     for env in env_eval:
         for action_space in env.src_dst_k_middlepoints.items():
+            a_dim.append(len(action_space[1]))
             max_a_dim = max(max_a_dim, len(action_space[1]))
     hyper_parameter['max_a_dim'] = max_a_dim
+    hyper_parameter['avg_a_dim'] = round(sum(a_dim)/len(a_dim))
 
     counter_store_model = 0
     total_step = 0
