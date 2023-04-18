@@ -32,6 +32,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     enero = "SP_3top_15_B_NEW"
+    method = "SAC"
     differentiation_str = args.d[0]
     folder_dir = args.f[0]
     num_topologies_x_link_failure = args.num_topologies[0]
@@ -139,10 +140,10 @@ if __name__ == "__main__":
     dd6_aux = np.zeros((TMs,3))
     dd8_aux = np.zeros((TMs,3))
 
-    dd2 = pd.DataFrame(columns=['SAC','Enero','DEFO', 'Number Link Failures'])
-    dd4 = pd.DataFrame(columns=['SAC','Enero','DEFO', 'Number Link Failures'])
-    dd6 = pd.DataFrame(columns=['SAC','Enero','DEFO', 'Number Link Failures'])
-    dd8 = pd.DataFrame(columns=['SAC','Enero','DEFO', 'Number Link Failures'])
+    dd2 = pd.DataFrame(columns=[method,'Enero','DEFO', 'Number Link Failures'])
+    dd4 = pd.DataFrame(columns=[method,'Enero','DEFO', 'Number Link Failures'])
+    dd6 = pd.DataFrame(columns=[method,'Enero','DEFO', 'Number Link Failures'])
+    dd8 = pd.DataFrame(columns=[method,'Enero','DEFO', 'Number Link Failures'])
 
     for num_fail in lk_fail:
         it = 0

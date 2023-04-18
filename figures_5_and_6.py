@@ -40,6 +40,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     enero = "SP_3top_15_B_NEW"
+    method = "SAC"
     differentiation_str = args.d[0]
 
     drl_top1_uti = []
@@ -71,9 +72,9 @@ if __name__ == "__main__":
     if not os.path.exists(path_to_dir):
         os.makedirs(path_to_dir)
 
-    dd_Eli = pd.DataFrame(columns=['SAC', 'ENERO(DRL)', 'LS', 'ENERO', 'Topologies'])
-    dd_Janet = pd.DataFrame(columns=['SAC', 'ENERO(DRL)', 'LS', 'ENERO', 'Topologies'])
-    dd_Hurricane = pd.DataFrame(columns=['SAC', 'ENERO(DRL)', 'LS', 'ENERO', 'Topologies'])
+    dd_Eli = pd.DataFrame(columns=[method, 'ENERO(DRL)', 'LS', 'ENERO', 'Topologies'])
+    dd_Janet = pd.DataFrame(columns=[method, 'ENERO(DRL)', 'LS', 'ENERO', 'Topologies'])
+    dd_Hurricane = pd.DataFrame(columns=[method, 'ENERO(DRL)', 'LS', 'ENERO', 'Topologies'])
 
     # Iterate over all topologies and evaluate our DRL agent on all TMs
     for folder in folders:
@@ -113,17 +114,17 @@ if __name__ == "__main__":
                     with open(path_to_pckl_rewards+file, 'rb') as f:
                         results = pickle.load(f)
                     if folder==folders[0]:
-                        dd_Eli.loc[it, 'SAC'] = results[9]
+                        dd_Eli.loc[it, method] = results[9]
                         cost_ls_top1.append(results[15])
                         cost_drl_top1.append(results[14])
                         cost_enero_top1.append(results[16])
                     elif folder==folders[1]:
-                        dd_Janet.loc[it, 'SAC'] = results[9]
+                        dd_Janet.loc[it, method] = results[9]
                         cost_ls_top2.append(results[15])
                         cost_drl_top2.append(results[14])
                         cost_enero_top2.append(results[16])
                     else:
-                        dd_Hurricane.loc[it, 'SAC'] = results[9]
+                        dd_Hurricane.loc[it, method] = results[9]
                         cost_ls_top3.append(results[15])
                         cost_drl_top3.append(results[14])
                         cost_enero_top3.append(results[16])
