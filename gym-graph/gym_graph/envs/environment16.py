@@ -600,18 +600,20 @@ class Env16(gym.Env):
         # Find new maximum and minimum utilization link
         old_Utilization = self.edgeMaxUti[2]
         self.edgeMaxUti = (0, 0, 0)
+        uti_list = []
         for i in self.graph:
             for j in self.graph[i]:
                 position = self.edgesDict[str(i)+':'+str(j)]
                 self.edge_state[position][0] = self.graph[i][j][0]['utilization']
                 link_capacity = self.links_bw[i][j]
                 norm_edge_state_capacity = self.edge_state[position][0]/link_capacity
+                uti_list.append(norm_edge_state_capacity)
                 if norm_edge_state_capacity>self.edgeMaxUti[2]:
                     self.edgeMaxUti = (i, j, norm_edge_state_capacity)
          
         self.currentVal = -self.edgeMaxUti[2]
 
-        self.reward = np.around((old_Utilization-self.edgeMaxUti[2])*10,2)
+        self.reward = np.around((old_Utilization-self.edgeMaxUti[2]-self.edgeMaxUti[2]+np.std(uti_list)),3)
 
         # If we didn't iterate over all demands 
         if self.iter_list_elig_demn<len(self.list_eligible_demands):

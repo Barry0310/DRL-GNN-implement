@@ -111,7 +111,7 @@ if __name__ == '__main__':
     counter_store_model = 0
     total_step = 0
     actor_loss, critic_loss = 0, 0
-    max_reward = -1000
+    max_reward = -100000
     AC_policy = SACD(hyper_parameter)
     for iters in range(100):
 

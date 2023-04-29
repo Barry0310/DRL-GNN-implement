@@ -149,7 +149,7 @@ class SACD:
         q_loss /= self.batch_size
         self.c_optimizer.zero_grad()
         q_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=0.5)
+        #torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=0.5)
         self.c_optimizer.step()
 
         # ------------------------------------------ Train Actor ----------------------------------------#
@@ -170,7 +170,7 @@ class SACD:
         a_loss /= self.batch_size
         self.a_optimizer.zero_grad()
         a_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=0.5)
+        #torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=0.5)
         self.a_optimizer.step()
 
         for params in self.critic.parameters():
@@ -179,7 +179,7 @@ class SACD:
         # ------------------------------------------ Train Alpha ----------------------------------------#
         with torch.no_grad():
             H_mean = entropy/self.batch_size
-        alpha_loss = self.log_alpha.exp() * (H_mean - self.target_entropy)
+        alpha_loss = self.log_alpha * (H_mean - self.target_entropy)
 
         self.alpha_optimizer.zero_grad()
         alpha_loss.backward()
