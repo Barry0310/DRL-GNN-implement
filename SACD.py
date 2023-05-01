@@ -31,6 +31,8 @@ class SACD:
 
         self.replay_buffer = deque(maxlen=hp['buffer_size'])
 
+        self.K_path = 0
+
     def add_exp(self, env, st, src, dst, demand, action, reward, done):
         stp1 = self.input_transform(env, src, dst, demand)
         exp = {
@@ -64,15 +66,29 @@ class SACD:
             j = j + 1
         return path
 
+    def get_path_K(self, env, src, dst, k):
+        path = []
+        current_path = env.allPaths[str(src)+':'+str(dst)][k]
+        i = 0
+        j = 1
+        while j < len(current_path):
+            path.append(env.edgesDict[str(current_path[i]) + ':' + str(current_path[j])])
+            i = i + 1
+            j = j + 1
+        return path
+
     def get_path_features(self, env, src, dst, mid, demand):
         temp = {
-            'path': self.get_path(env, src, mid),
+            'path': [],
             'demand': [demand],
             'link_capacity': env.edge_state[:, 1],
         }
-
-        if mid != dst:
-            temp['path'] = temp['path'] + self.get_path(env, mid, dst)
+        if self.K_path > 0:
+            temp['path'] = self.get_path_K(env, src, dst, mid)
+        else:
+            temp['path'] = self.get_path(env, src, mid)
+            if mid != dst:
+                temp['path'] = temp['path'] + self.get_path(env, mid, dst)
 
         temp['demand'][0] = temp['demand'][0] / min(temp['link_capacity'][temp['path']])
 
@@ -87,6 +103,10 @@ class SACD:
         list_k_features = []
 
         middle_point_list = env.src_dst_k_middlepoints[str(src) + ':' + str(dst)]
+
+        if self.K_path > 0:
+            middle_point_list = range(self.K_path)
+
         for mid in range(len(middle_point_list)):
             features = self.get_path_features(env, src, dst, middle_point_list[mid], demand)
             list_k_features.append(features)
@@ -149,7 +169,7 @@ class SACD:
         q_loss /= self.batch_size
         self.c_optimizer.zero_grad()
         q_loss.backward()
-        #torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=0.5)
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=5)
         self.c_optimizer.step()
 
         # ------------------------------------------ Train Actor ----------------------------------------#
@@ -170,7 +190,7 @@ class SACD:
         a_loss /= self.batch_size
         self.a_optimizer.zero_grad()
         a_loss.backward()
-        #torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=0.5)
+        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=5)
         self.a_optimizer.step()
 
         for params in self.critic.parameters():

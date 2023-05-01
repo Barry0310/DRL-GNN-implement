@@ -452,7 +452,7 @@ if __name__ == "__main__":
 
     hyper_parameter = {
         'feature_size': 20,
-        't': 5,
+        't': 4,
         'readout_units': 20,
         'episode': 20,
         'lr': 0.0002,
@@ -497,7 +497,7 @@ if __name__ == "__main__":
 
     DRL_SP_Agent = SACD(hyper_parameter)
     model_dir = "./models" + differentiation_str
-    model_id = 'final'
+    #model_id = 'final'
     DRL_SP_Agent.actor.load_state_dict(torch.load(model_dir + f"/actor_{model_id}.pt"))
     DRL_SP_Agent.actor.eval()
     # Restore variables on creation if a checkpoint exists.

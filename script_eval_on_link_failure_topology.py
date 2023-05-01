@@ -489,7 +489,7 @@ if __name__ == "__main__":
 
     hyper_parameter = {
         'feature_size': 20,
-        't': 5,
+        't': 4,
         'readout_units': 20,
         'lr': 0.0002,
         'gamma': 0.99,
@@ -498,7 +498,8 @@ if __name__ == "__main__":
         'buffer_size': 200000,
         'buffer_threshold': 5000,
         'update_freq': 100,
-        'max_a_dim': 1
+        'max_a_dim': 1,
+        'avg_a_dim': 1
     }
 
     DRL_SP_Agent = SACD(hyper_parameter)
