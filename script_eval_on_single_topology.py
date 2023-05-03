@@ -493,10 +493,10 @@ if __name__ == "__main__":
     ########### The following lines of code is to evaluate a DRL SP-based agent
     env_DRL_SP = gym.make(ENV_MIDDROUT_AGENT_SP)
     env_DRL_SP.seed(SEED)
+    env_DRL_SP.use_K_path = K_path
     env_DRL_SP.generate_environment(general_dataset_folder, graph_topology_name, EPISODE_LENGTH_MIDDROUT, K, percentage_demands)
     # Set to True f we want to take the top X% of the 5 most loaded links
     env_DRL_SP.top_K_critical_demands = True
-    env_DRL_SP.use_K_path = K_path
 
     DRL_SP_Agent = SACD(hyper_parameter)
     model_dir = "./models" + differentiation_str
