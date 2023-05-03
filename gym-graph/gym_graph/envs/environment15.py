@@ -10,6 +10,7 @@ import json
 import os.path
 import gc
 import defo_process_results as defoResults
+from itertools import cycle
 
 class Env15(gym.Env):
     """
@@ -64,6 +65,8 @@ class Env15(gym.Env):
         self.paths_Matrix_from_routing = None # We store a list of paths extracted from the routing matrix for each src-dst pair
 
         self.K = None
+        self.use_K_path = False
+        self.sp_pathk = None  # For each src,dst we store the nodeId of the path k
         self.nodes = None # List of nodes to pick randomly from them
         self.ordered_edges = None
         self.edgesDict = dict() # Stores the position id of each edge in order
@@ -120,6 +123,10 @@ class Env15(gym.Env):
         # We obtain the demand from the original source,destination pair
         bw_allocated = self.TM[init_source][final_destination]
         currentPath = self.shortest_paths[src,dst]
+
+        srcdst = str(init_source) + ':' + str(final_destination)
+        if self.use_K_path and srcdst in self.sp_pathk:
+            currentPath = self.allPaths[srcdst][self.sp_pathk[srcdst]]
 
         i = 0
         j = 1
@@ -271,6 +278,17 @@ class Env15(gym.Env):
                                         self.src_dst_k_middlepoints[str(n1)+':'+str(n2)].append(midd)
                                         repeated_actions.append(action_flags)
 
+    def k_shortest_path(self):
+        self.diameter = nx.diameter(self.graph)
+        for n1 in range(0, self.numNodes):
+            for n2 in range(0, self.numNodes):
+                if n1 != n2:
+                    tmp = [p for p in nx.all_simple_paths(self.graph, n1, n2, cutoff=self.diameter*2)]
+                    tmp = sorted(tmp, key=lambda item: len(item))
+                    c = cycle(tmp)
+                    self.allPaths[str(n1) + ':' + str(n2)] = [next(c) for _ in range(self.K)]
+        gc.collect()
+
     def compute_SPs(self):
         diameter = nx.diameter(self.graph)
         self.shortest_paths = np.zeros((self.numNodes,self.numNodes),dtype=object)
@@ -346,6 +364,8 @@ class Env15(gym.Env):
         self.nodes = list(range(0,self.numNodes))
 
         self.compute_middlepoint_set_remove_rep_actions_no_loop()
+        if self.use_K_path:
+            self.k_shortest_path()
     
     def step_sp(self, action, source, destination):
         # We get the K-middlepoints between source-destination
@@ -376,12 +396,18 @@ class Env15(gym.Env):
         return self.edgeMaxUti[2]
     
     def step_hill_sp(self, action, source, destination):
-        # We get the K-middlepoints between source-destination
-        middlePointList = list(self.src_dst_k_middlepoints[str(source) +':'+ str(destination)])
-        middlePoint = middlePointList[action]
+        kp = None
+        if self.use_K_path:
+            kp = action
+            self.sp_pathk[str(source) + ':' + str(destination)] = kp
+            middlePoint = destination
+        else:
+            # We get the K-middlepoints between source-destination
+            middlePointList = self.src_dst_k_middlepoints[str(source) + ':' + str(destination)]
+            middlePoint = middlePointList[action]
 
         # First we allocate until the middlepoint using the shortest path
-        self.allocate_to_destination_sp(source, middlePoint, source, destination)
+        self.allocate_to_destination_sp(source, middlePoint, source, destination, kp)
         # If we allocated to a middlepoint that is not the final destination
         if middlePoint!=destination:
             # Then we allocate from the middlepoint to the destination using the shortest path
@@ -444,6 +470,7 @@ class Env15(gym.Env):
         self._generate_tm(tm_id)
 
         self.sp_middlepoints = dict()
+        self.sp_pathk = dict()
 
         # Clear the link utilization and crossing paths
         for i in self.graph:
@@ -490,9 +517,11 @@ class Env15(gym.Env):
         """
         self._generate_tm(tm_id)
         if best_routing is not None:
-            self.sp_middlepoints = best_routing
+            if not self.use_K_path:
+                self.sp_middlepoints = best_routing
         else: 
             self.sp_middlepoints = dict()
+            self.sp_pathk = dict()
         self.list_of_demands_to_change = list_of_demands_to_change
 
         # Clear the link utilization and crossing paths
@@ -504,18 +533,26 @@ class Env15(gym.Env):
         # For each link we store the total sum of bandwidths of the paths crossing each link without middlepoints
         self.compute_link_utilization_reset_sp()
 
-        # We restore the best routing configuration from the DRL agent
-        for key, middlepoint in self.sp_middlepoints.items():
-            source = int(key.split(':')[0])
-            dest = int(key.split(':')[1])
-            if middlepoint!=dest:
-                # First we remove current routing and then we assign the new middlepoint
+        if self.use_K_path:
+            for key, kp in best_routing.items():
+                source = int(key.split(':')[0])
+                dest = int(key.split(':')[1])
                 self.decrease_links_utilization_sp(source, dest, source, dest)
+                self.allocate_to_destination_sp(source, dest, source, dest, kp)
+            self.sp_pathk = best_routing
+        else:
+            # We restore the best routing configuration from the DRL agent
+            for key, middlepoint in self.sp_middlepoints.items():
+                source = int(key.split(':')[0])
+                dest = int(key.split(':')[1])
+                if middlepoint != dest:
+                    # First we remove current routing and then we assign the new middlepoint
+                    self.decrease_links_utilization_sp(source, dest, source, dest)
 
-                # First we allocate until the middlepoint
-                self.allocate_to_destination_sp(source, middlepoint, source, dest)
-                # Then we allocate from the middlepoint to the destination
-                self.allocate_to_destination_sp(middlepoint, dest, source, dest)        
+                    # First we allocate until the middlepoint
+                    self.allocate_to_destination_sp(source, middlepoint, source, dest)
+                    # Then we allocate from the middlepoint to the destination
+                    self.allocate_to_destination_sp(middlepoint, dest, source, dest)
 
         # We iterate over all links in an ordered fashion and store the features to edge_state
         self.edgeMaxUti = (0, 0, 0)
@@ -543,11 +580,14 @@ class Env15(gym.Env):
 
         return -self.edgeMaxUti[2]
     
-    def allocate_to_destination_sp(self, src, dst, init_source, final_destination): 
+    def allocate_to_destination_sp(self, src, dst, init_source, final_destination, kp=None):
         # In this function we allocated the bandwidth by segments. This funcion is used when we want
         # to allocate from a src to a middlepoint and then from middlepoint to a dst using the sp
         bw_allocate = self.TM[init_source][final_destination]
         currentPath = self.shortest_paths[src,dst]
+
+        if kp != None:
+            currentPath = self.allPaths[str(init_source)+':'+str(final_destination)][kp]
         
         i = 0
         j = 1

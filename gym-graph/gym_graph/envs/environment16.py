@@ -623,6 +623,8 @@ class Env16(gym.Env):
             self.sp_middlepoints[str(source)+':'+str(destination)] = middlePoint
         
         self.sp_middlepoints_step = self.sp_middlepoints
+        if self.use_K_path:
+            self.sp_middlepoints_step = self.sp_pathk
         
         # Find new maximum and minimum utilization link
         old_Utilization = self.edgeMaxUti[2]

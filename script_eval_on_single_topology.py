@@ -32,7 +32,8 @@ torch.manual_seed(1)
 
 # Indicates how many time-steps has an episode
 EPISODE_LENGTH_MIDDROUT = 100
-NUM_ACTIONS = 100 # Put a very large number if we want to take all actions possible for each topology
+NUM_ACTIONS = 15 # Put a very large number if we want to take all actions possible for each topology
+KP = True
 
 MAX_NUM_EDGES = 100
 
@@ -226,6 +227,31 @@ class HILL_CLIMBING:
             env.decrease_links_utilization_sp(source, destination, source, destination)
         
         return -currentValue
+
+    def get_value_sp_kp(self, env, source, destination, action):
+        # First we allocate until the middlepoint
+        env.allocate_to_destination_sp(source, destination, source, destination, action)
+        env.sp_pathk[str(source) + ':' + str(destination)] = action
+
+        currentValue = -1000000
+        position = 0
+        # Get the maximum loaded link and it's value after allocating to the corresponding middlepoint
+        for i in env.graph:
+            for j in env.graph[i]:
+                link_capacity = env.links_bw[i][j]
+                if env.edge_state[position][0] / link_capacity > currentValue:
+                    currentValue = env.edge_state[position][0] / link_capacity
+                position = position + 1
+
+        # Dissolve allocation step so that later we can try another action
+        # Remove bandwidth allocated until the middlepoint and then from the middlepoint on
+        if str(source) + ':' + str(destination) in env.sp_pathk:
+            env.decrease_links_utilization_sp(source, destination, source, destination)
+            del env.sp_pathk[str(source) + ':' + str(destination)]
+        else:  # Remove the bandwidth allocated from the src to the destination
+            env.decrease_links_utilization_sp(source, destination, source, destination)
+
+        return -currentValue
     
     def explore_neighbourhood_sp(self, env):
         dem_iter = 0
@@ -311,6 +337,46 @@ class HILL_CLIMBING:
                     env.allocate_to_destination_sp(source, dest, source, dest)
         return nextVal, next_state
 
+    def explore_neighbourhood_DRL_sp_kp(self, env):
+        dem_iter = 0
+        nextVal = -1000000
+        next_state = None
+
+        # We iterate over the top critical demands
+        for elem in env.list_eligible_demands:
+            source = elem[0]
+            dest = elem[1]
+            for a in range(NUM_ACTIONS):
+                action = -1
+                # First we need to desallocate the current demand before we explore all it's possible actions
+                # Check if there is a middlepoint to desallocate from src-middlepoint-dst
+                if str(source) + ':' + str(dest) in env.sp_pathk:
+                    action = env.sp_pathk[str(source) + ':' + str(dest)]
+                    env.decrease_links_utilization_sp(source, dest, source, dest)
+                    del env.sp_pathk[str(source) + ':' + str(dest)]
+                    # Else, there is no middlepoint and we desallocate the entire src,dst
+                else:
+                    # Remove the bandwidth allocated from the src to the destination
+                    env.decrease_links_utilization_sp(source, dest, source, dest)
+                    exit()
+
+                evalState = self.get_value_sp_kp(env, source, dest, a)
+                if evalState > nextVal:
+                    nextVal = evalState
+                    next_state = (a, source, dest)
+
+                # Allocate back the demand whose actions we explored
+                # If the current demand had a middlepoint, we allocate src-middlepoint-dst
+                if action >= 0:
+                    # First we allocate until the middlepoint
+                    env.allocate_to_destination_sp(source, dest, source, dest, action)
+                    # We store that the pair source,destination has a middlepoint
+                    env.sp_pathk[str(source) + ':' + str(dest)] = action
+                else:
+                    # Then we allocate from the middlepoint to the destination
+                    env.allocate_to_destination_sp(source, dest, source, dest)
+        return nextVal, next_state
+
 def play_sp_hill_climbing_games(tm_id):
     # Here we use sp in hill climbing to select the middlepoint and to evaluate
     env_hill_climb = gym.make(ENV_SIMM_ANEAL_AGENT)
@@ -384,6 +450,39 @@ def play_DRL_GNN_sp_hill_climbing_games(tm_id, best_routing, list_of_demands_to_
         timesteps.append((timer-time_start_DRL, currentVal*(-1)))
     end = tt.time()
     return currentVal*(-1), end-start
+
+
+def play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change, timesteps, time_start_DRL):
+    # Here we use sp in hill climbing to select the middlepoint and to evaluate
+    env_hill_climb = gym.make(ENV_SIMM_ANEAL_AGENT)
+    env_hill_climb.seed(SEED)
+    env_hill_climb.use_K_path = KP
+    env_hill_climb.generate_environment(general_dataset_folder, graph_topology_name, EPISODE_LENGTH_MIDDROUT,
+                                        NUM_ACTIONS, percentage_demands)
+
+    currentVal = env_hill_climb.reset_DRL_hill_sp(tm_id, best_routing, list_of_demands_to_change)
+    hill_climb_agent = HILL_CLIMBING(env_hill_climb)
+    start = tt.time()
+    while 1:
+        nextVal, next_state = hill_climb_agent.explore_neighbourhood_DRL_sp_kp(env_hill_climb)
+        # If the difference between the two edges is super small but non-zero, we break (this is because of precision reasons)
+        if nextVal <= currentVal or (abs((-1) * nextVal - (-1) * currentVal) < 1e-4):
+            break
+
+        # Before we apply the new action, we need to remove the current allocation of the chosen demand
+        action = next_state[0]
+        source = next_state[1]
+        dest = next_state[2]
+
+        # Remove bandwidth allocated until the middlepoint and then from the middlepoint on
+        env_hill_climb.decrease_links_utilization_sp(source, dest, source, dest)
+
+        # We apply the new chosen action to the selected demand
+        currentVal = env_hill_climb.step_hill_sp(action, source, dest)
+        timer = tt.time()
+        timesteps.append((timer - time_start_DRL, currentVal * (-1)))
+    end = tt.time()
+    return currentVal * (-1), end - start
 
 class SAPAgent:
     def __init__(self, env):
@@ -489,8 +588,8 @@ if __name__ == "__main__":
     timesteps = list()
     results = np.zeros(17)
 
-    K_path = True
-    K = 15
+    K_path = KP
+    K = NUM_ACTIONS
     ########### The following lines of code is to evaluate a DRL SP-based agent
     env_DRL_SP = gym.make(ENV_MIDDROUT_AGENT_SP)
     env_DRL_SP.seed(SEED)
@@ -500,6 +599,9 @@ if __name__ == "__main__":
     env_DRL_SP.top_K_critical_demands = True
 
     DRL_SP_Agent = SACD(hyper_parameter)
+    if K_path:
+        DRL_SP_Agent.K_path = K
+        DRL_SP_Agent.target_entropy = 0.5 * (-np.log(1 / K))
     model_dir = "./models" + differentiation_str
     #model_id = 'final'
     DRL_SP_Agent.actor.load_state_dict(torch.load(model_dir + f"/actor_{model_id}.pt"))
@@ -518,13 +620,13 @@ if __name__ == "__main__":
     
     max_link_uti_DRL_SP, optim_cost_DRL_GNN, OSPF_init, best_routing, list_of_demands_to_change, time_start_DRL = play_middRout_games_sp(tm_id, env_DRL_SP, DRL_SP_Agent, timesteps)
     
-    max_link_uti_DRL_SP_HILL, optim_cost_DRL_HILL = 1,1 #play_DRL_GNN_sp_hill_climbing_games(tm_id, best_routing, list_of_demands_to_change, timesteps, time_start_DRL)
+    max_link_uti_DRL_SP_HILL, optim_cost_DRL_HILL = play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change, timesteps, time_start_DRL)
 
     new_timesteps = list()
     for elem in timesteps:
         new_timesteps.append((elem[0], elem[1], time_start_DRL, max_link_uti_DRL_SP))
 
-    print("MAX UTI abans i despres d'optimitzar: ", OSPF_init, max_link_uti_DRL_SP_HILL, tm_id)
+    print("MAX UTI abans i despres d'optimitzar: ", OSPF_init, max_link_uti_DRL_SP, tm_id)
 
     results[3] = max_link_uti_DRL_SP_HILL 
     results[4] = max_link_uti_sim_annealing
