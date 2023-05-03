@@ -175,7 +175,7 @@ class Env16(gym.Env):
                     tmp = sorted(tmp, key=lambda item: len(item))
                     c = cycle(tmp)
                     self.allPaths[str(n1) + ':' + str(n2)] = [next(c) for _ in range(self.K)]
-                    gc.collect()
+        gc.collect()
 
     
     def decrease_links_utilization_sp(self, src, dst, init_source, final_destination):
