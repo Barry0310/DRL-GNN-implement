@@ -358,7 +358,6 @@ class HILL_CLIMBING:
                 else:
                     # Remove the bandwidth allocated from the src to the destination
                     env.decrease_links_utilization_sp(source, dest, source, dest)
-                    exit()
 
                 evalState = self.get_value_sp_kp(env, source, dest, a)
                 if evalState > nextVal:
@@ -626,7 +625,7 @@ if __name__ == "__main__":
     for elem in timesteps:
         new_timesteps.append((elem[0], elem[1], time_start_DRL, max_link_uti_DRL_SP))
 
-    print("MAX UTI abans i despres d'optimitzar: ", OSPF_init, max_link_uti_DRL_SP, tm_id)
+    print("MAX UTI abans i despres d'optimitzar: ", OSPF_init, max_link_uti_DRL_SP, max_link_uti_DRL_SP_HILL, tm_id)
 
     results[3] = max_link_uti_DRL_SP_HILL 
     results[4] = max_link_uti_sim_annealing
