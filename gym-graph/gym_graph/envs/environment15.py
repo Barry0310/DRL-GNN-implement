@@ -516,12 +516,14 @@ class Env15(gym.Env):
         from the link with more utilization to later allocate it on a new path in the act().
         """
         self._generate_tm(tm_id)
+
+        self.sp_pathk = dict()
         if best_routing is not None:
             if not self.use_K_path:
                 self.sp_middlepoints = best_routing
         else: 
             self.sp_middlepoints = dict()
-            self.sp_pathk = dict()
+
         self.list_of_demands_to_change = list_of_demands_to_change
 
         # Clear the link utilization and crossing paths
