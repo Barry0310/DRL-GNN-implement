@@ -89,17 +89,17 @@ if __name__ == "__main__":
                     with open(path_to_pckl_rewards+file, 'rb') as f:
                         results = pickle.load(f)
                     if folder==folders[0]:
-                        dd_Eli.loc[it] = [0, results[9],results[7],results[3],topology_eval_name]
+                        dd_Eli.loc[it] = [0, results[9],results[7], 0,results[3],topology_eval_name]
                         cost_ls_top1.append(results[15])
                         cost_drl_top1.append(results[14])
                         cost_enero_top1.append(results[16])
                     elif folder==folders[1]:
-                        dd_Janet.loc[it] = [0, results[9],results[7],results[3],topology_eval_name]
+                        dd_Janet.loc[it] = [0, results[9],results[7], 0,results[3],topology_eval_name]
                         cost_ls_top2.append(results[15])
                         cost_drl_top2.append(results[14])
                         cost_enero_top2.append(results[16])
                     else:
-                        dd_Hurricane.loc[it] = [0, results[9],results[7],results[3],topology_eval_name]
+                        dd_Hurricane.loc[it] = [0, results[9],results[7], 0,results[3],topology_eval_name]
                         cost_ls_top3.append(results[15])
                         cost_drl_top3.append(results[14])
                         cost_enero_top3.append(results[16])
