@@ -462,7 +462,8 @@ if __name__ == "__main__":
         'buffer_size': 10000,
         'update_freq': 100,
         'update_times': 10,
-        'max_a_dim': 20
+        'max_a_dim': 20,
+        'avg_a_dim': 20
     }
 
     # Parse logs and get best model
