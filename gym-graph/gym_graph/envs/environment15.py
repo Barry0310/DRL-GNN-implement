@@ -341,7 +341,7 @@ class Env15(gym.Env):
         self.numEdges = len(self.graph.edges())
 
         self.K = K
-        if self.K>self.numNodes:
+        if not self.use_K_path and self.K > self.numNodes:
             self.K = self.numNodes
 
         self.edge_state = np.zeros((self.numEdges, 2))
@@ -363,9 +363,11 @@ class Env15(gym.Env):
         # We create the list of nodes ids to pick randomly from them
         self.nodes = list(range(0,self.numNodes))
 
-        self.compute_middlepoint_set_remove_rep_actions_no_loop()
         if self.use_K_path:
+            self.compute_SPs()
             self.k_shortest_path()
+        else:
+            self.compute_middlepoint_set_remove_rep_actions_no_loop()
     
     def step_sp(self, action, source, destination):
         # We get the K-middlepoints between source-destination

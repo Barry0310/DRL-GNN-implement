@@ -102,10 +102,12 @@ class SACD:
     def input_transform(self, env, src, dst, demand):
         list_k_features = []
 
-        middle_point_list = env.src_dst_k_middlepoints[str(src) + ':' + str(dst)]
+        middle_point_list = []
 
         if self.K_path > 0:
             middle_point_list = range(self.K_path)
+        else:
+            middle_point_list = env.src_dst_k_middlepoints[str(src) + ':' + str(dst)]
 
         for mid in range(len(middle_point_list)):
             features = self.get_path_features(env, src, dst, middle_point_list[mid], demand)

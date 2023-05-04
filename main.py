@@ -53,9 +53,10 @@ if __name__ == '__main__':
         'gamma': 0.99,
         'alpha': 0.25,
         'batch_size': 256,
-        'buffer_size': 200000,
+        'buffer_size': 100000,
         'buffer_threshold': 5000,
         'update_freq': 16,
+        'avg_a_dim': 1
     }
 
     dataset_root_folder = "../Enero_datasets/dataset_sing_top/data/results_my_3_tops_unif_05-1/"
@@ -109,12 +110,13 @@ if __name__ == '__main__':
 
     max_a_dim = 0
     a_dim = []
-    for env in env_eval:
-        for action_space in env.src_dst_k_middlepoints.items():
-            a_dim.append(len(action_space[1]))
-            max_a_dim = max(max_a_dim, len(action_space[1]))
-    hyper_parameter['max_a_dim'] = max_a_dim
-    hyper_parameter['avg_a_dim'] = round(sum(a_dim)/len(a_dim))
+    if not K_path:
+        for env in env_eval:
+            for action_space in env.src_dst_k_middlepoints.items():
+                a_dim.append(len(action_space[1]))
+                max_a_dim = max(max_a_dim, len(action_space[1]))
+        hyper_parameter['max_a_dim'] = max_a_dim
+        hyper_parameter['avg_a_dim'] = round(sum(a_dim)/len(a_dim))
 
     counter_store_model = 0
     total_step = 0
@@ -126,9 +128,9 @@ if __name__ == '__main__':
         AC_policy.target_entropy = 0.5 * (-np.log(1 / K))
     for iters in range(100):
 
-        for e in range(20):
+        for e in range(10):
 
-            print(f"Episode {iters*20+e}")
+            print(f"Episode {iters*10+e}")
 
             for topo in range(len(env_training)):
                 tm_id = random.sample(training_tm_ids, 1)[0]
