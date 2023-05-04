@@ -167,14 +167,15 @@ class Env16(gym.Env):
                     gc.collect()
 
     def k_shortest_path(self):
-        self.diameter = nx.diameter(self.graph)
+        D = nx.DiGraph()
+        for u, v in self.graph.edges():
+            if not D.has_edge(u, v):
+                D.add_edge(u, v)
         for n1 in range(0, self.numNodes):
             for n2 in range(0, self.numNodes):
                 if n1 != n2:
-                    tmp = [p for p in nx.all_simple_paths(self.graph, n1, n2, cutoff=self.diameter*2)]
-                    tmp = sorted(tmp, key=lambda item: len(item))
-                    c = cycle(tmp)
-                    self.allPaths[str(n1) + ':' + str(n2)] = [next(c) for _ in range(self.K)]
+                    c = cycle(nx.shortest_simple_paths(D, n1, n2))
+                    self.allPaths[str(n1) + ':' + str(n2)] = list(next(c) for _ in range(self.K))
         gc.collect()
 
     
