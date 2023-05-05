@@ -473,8 +473,6 @@ def play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_
 
         # We apply the new chosen action to the selected demand
         currentVal = env_hill_climb.step_hill_sp(action, source, dest)
-        timer = tt.time()
-        timesteps.append((timer - time_start_DRL, currentVal * (-1)))
     end = tt.time()
     return currentVal * (-1), end - start
 
