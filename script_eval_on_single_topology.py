@@ -32,7 +32,7 @@ torch.manual_seed(1)
 
 # Indicates how many time-steps has an episode
 EPISODE_LENGTH_MIDDROUT = 100
-NUM_ACTIONS = 15 # Put a very large number if we want to take all actions possible for each topology
+NUM_ACTIONS = 20 # Put a very large number if we want to take all actions possible for each topology
 KP = True
 
 MAX_NUM_EDGES = 100
