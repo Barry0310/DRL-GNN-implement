@@ -170,19 +170,19 @@ if __name__ == "__main__":
                     #dd2_aux[tm_id,3]=sap_fail_2[topology_id*TMs+tm_id]
                 if num_fail == 4:
                     dd4_aux[tm_id, 0] = our_fail_4[topology_id * TMs + tm_id]
-                    dd2_aux[tm_id, 1] = our_ls_fail_4[topology_id * TMs + tm_id]
+                    dd4_aux[tm_id, 1] = our_ls_fail_4[topology_id * TMs + tm_id]
                     dd4_aux[tm_id,2]=fail_4[topology_id*TMs+tm_id]
                     dd4_aux[tm_id,3]=defo_fail_4[topology_id*TMs+tm_id]
                     #dd4_aux[tm_id,3]=sap_fail_4[topology_id*TMs+tm_id]
                 if num_fail == 6:
                     dd6_aux[tm_id, 0] = our_fail_6[topology_id * TMs + tm_id]
-                    dd2_aux[tm_id, 1] = our_ls_fail_6[topology_id * TMs + tm_id]
+                    dd6_aux[tm_id, 1] = our_ls_fail_6[topology_id * TMs + tm_id]
                     dd6_aux[tm_id,2]=fail_6[topology_id*TMs+tm_id]
                     dd6_aux[tm_id,3]=defo_fail_6[topology_id*TMs+tm_id]
                     #dd6_aux[tm_id,3]=sap_fail_6[topology_id*TMs+tm_id]
                 if num_fail == 8:
                     dd8_aux[tm_id, 0] = our_fail_8[topology_id * TMs + tm_id]
-                    dd2_aux[tm_id, 1] = our_ls_fail_8[topology_id * TMs + tm_id]
+                    dd8_aux[tm_id, 1] = our_ls_fail_8[topology_id * TMs + tm_id]
                     dd8_aux[tm_id,2]=fail_8[topology_id*TMs+tm_id]
                     dd8_aux[tm_id,3]=defo_fail_8[topology_id*TMs+tm_id]
                     #dd8_aux[tm_id,3]=sap_fail_8[topology_id*TMs+tm_id]
