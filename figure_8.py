@@ -190,11 +190,11 @@ if __name__ == "__main__":
             if num_fail==2:
                 dd2.loc[it] = [np.mean(dd2_aux[:,0]), np.mean(dd2_aux[:,1]), np.mean(dd2_aux[:,2]), np.mean(dd2_aux[:,3]), num_fail]
             if num_fail == 4:
-                dd4.loc[it] = [np.mean(dd4_aux[:,0]), np.mean(dd4_aux[:,1]), np.mean(dd4_aux[:,2]), np.mean(dd2_aux[:,3]), num_fail]
+                dd4.loc[it] = [np.mean(dd4_aux[:,0]), np.mean(dd4_aux[:,1]), np.mean(dd4_aux[:,2]), np.mean(dd4_aux[:,3]), num_fail]
             if num_fail == 6:
-                dd6.loc[it] = [np.mean(dd6_aux[:,0]), np.mean(dd6_aux[:,1]), np.mean(dd6_aux[:,2]), np.mean(dd2_aux[:,3]), num_fail]
+                dd6.loc[it] = [np.mean(dd6_aux[:,0]), np.mean(dd6_aux[:,1]), np.mean(dd6_aux[:,2]), np.mean(dd6_aux[:,3]), num_fail]
             if num_fail == 8:
-                dd8.loc[it] = [np.mean(dd8_aux[:,0]), np.mean(dd8_aux[:,1]), np.mean(dd8_aux[:,2]), np.mean(dd2_aux[:,3]), num_fail]
+                dd8.loc[it] = [np.mean(dd8_aux[:,0]), np.mean(dd8_aux[:,1]), np.mean(dd8_aux[:,2]), np.mean(dd8_aux[:,3]), num_fail]
             it += 1
     
     # Define some hatches
