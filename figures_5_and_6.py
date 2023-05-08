@@ -64,6 +64,14 @@ if __name__ == "__main__":
     cost_ls_top3 = []
     cost_enero_top3 = []
 
+    if not os.path.exists("./csv"):
+        os.makedirs("./csv")
+
+    csv_path_to_dir = "./csv/"+differentiation_str+'/'
+
+    if not os.path.exists(csv_path_to_dir):
+        os.makedirs(csv_path_to_dir)
+
     if not os.path.exists("./Images"):
         os.makedirs("./Images")
 
@@ -175,6 +183,7 @@ if __name__ == "__main__":
     # Define some hatches
     hatches = cycle(['-', '|', '', '*', '/'])
     cdf = pd.concat([dd_Eli,dd_Janet,dd_Hurricane])
+    cdf.to_csv(csv_path_to_dir+"result.csv")
     mdf = pd.melt(cdf, id_vars=['Topologies'], var_name=['Topology'])      # MELT
     ax = sns.boxplot(x="Topologies", y="value", hue="Topology", data=mdf, palette="mako")  # RUN PLOT
     plt.rcParams['axes.grid'] = True

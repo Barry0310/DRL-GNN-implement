@@ -60,6 +60,14 @@ if __name__ == "__main__":
     filename_list = []
     X_axis = []
 
+    if not os.path.exists("./csv"):
+        os.makedirs("./csv")
+
+    csv_path_to_dir = "./csv/"+differentiation_str+'/'
+
+    if not os.path.exists(csv_path_to_dir):
+        os.makedirs(csv_path_to_dir)
+
     if not os.path.exists("./Images"):
         os.makedirs("./Images")
 
@@ -187,6 +195,7 @@ if __name__ == "__main__":
     # Define some hatches
     hatches = cycle(['\\', 'O', '/'])
     cdf = pd.concat([dd2,dd4,dd6,dd8])
+    cdf.to_csv(csv_path_to_dir+"link_failure_"+topology_Name+".csv")
     mdf = pd.melt(cdf, id_vars=['Number Link Failures'], var_name=['Topology'])      # MELT
     ax = sns.boxplot(x="Number Link Failures", y="value", hue="Topology", data=mdf, palette="mako")  # RUN PLOT
     ax.tick_params(axis='both', which='major', labelsize=14)
