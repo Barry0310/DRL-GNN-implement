@@ -671,7 +671,7 @@ class Env16(gym.Env):
 
         return self.reward, self.episode_over, 0.0, self.TM[self.patMaxBandwth[0]][self.patMaxBandwth[1]], self.patMaxBandwth[0], self.patMaxBandwth[1], self.edgeMaxUti, 0.0, np.std(self.edge_state[:,0])
 
-    def reset(self, tm_id):
+    def reset(self, tm_id, best_routing=None):
         """
         Reset environment and setup for new episode. 
         Generate new TM but load the same routing. We remove the path with more bandwidth
@@ -684,6 +684,14 @@ class Env16(gym.Env):
 
         # For each link we store the total sum of bandwidths of the paths crossing each link without middlepoints
         self.compute_link_utilization_reset()
+
+        if best_routing is not None:
+            for key, kp in best_routing.items():
+                source = int(key.split(':')[0])
+                dest = int(key.split(':')[1])
+                self.decrease_links_utilization_sp(source, dest, source, dest)
+                self.allocate_to_destination_sp(source, dest, source, dest, kp)
+            self.sp_pathk = best_routing
 
         # We iterate over all links in an ordered fashion and store the features to edge_state
         self.edgeMaxUti = (0, 0, 0)

@@ -32,13 +32,13 @@ torch.manual_seed(1)
 
 # Indicates how many time-steps has an episode
 EPISODE_LENGTH_MIDDROUT = 100
-NUM_ACTIONS = 20 # Put a very large number if we want to take all actions possible for each topology
+NUM_ACTIONS = 25 # Put a very large number if we want to take all actions possible for each topology
 KP = True
 
 MAX_NUM_EDGES = 100
 
-def play_middRout_games_sp(tm_id, env_middRout_sp, agent, timesteps):
-    demand, source, destination = env_middRout_sp.reset(tm_id)
+def play_middRout_games_sp(tm_id, env_middRout_sp, agent, timesteps, best=None):
+    demand, source, destination = env_middRout_sp.reset(tm_id, best)
     rewardAddTest = 0
 
     initMaxUti = env_middRout_sp.edgeMaxUti[2]
@@ -619,7 +619,7 @@ if __name__ == "__main__":
     
     max_link_uti_DRL_SP, optim_cost_DRL_GNN, OSPF_init, best_routing, list_of_demands_to_change, time_start_DRL = play_middRout_games_sp(tm_id, env_DRL_SP, DRL_SP_Agent, timesteps)
     
-    max_link_uti_DRL_SP_HILL, optim_cost_DRL_HILL = play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change, timesteps, time_start_DRL)
+    max_link_uti_DRL_SP_HILL, optim_cost_DRL_HILL, _, _, _, _ = play_middRout_games_sp(tm_id, env_DRL_SP, DRL_SP_Agent, timesteps, best_routing) #play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change, timesteps, time_start_DRL)
 
     new_timesteps = list()
     for elem in timesteps:
