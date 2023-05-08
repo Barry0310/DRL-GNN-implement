@@ -619,7 +619,7 @@ if __name__ == "__main__":
     
     max_link_uti_DRL_SP, optim_cost_DRL_GNN, OSPF_init, best_routing, list_of_demands_to_change, time_start_DRL = play_middRout_games_sp(tm_id, env_DRL_SP, DRL_SP_Agent, timesteps)
     
-    max_link_uti_DRL_SP_HILL, optim_cost_DRL_HILL, _, _, _, _ = play_middRout_games_sp(tm_id, env_DRL_SP, DRL_SP_Agent, timesteps, best_routing) #play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change, timesteps, time_start_DRL)
+    max_link_uti_DRL_SP_HILL, optim_cost_DRL_HILL = play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change, timesteps, time_start_DRL)
 
     new_timesteps = list()
     for elem in timesteps:

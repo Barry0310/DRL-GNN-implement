@@ -80,9 +80,9 @@ if __name__ == "__main__":
     if not os.path.exists(path_to_dir):
         os.makedirs(path_to_dir)
 
-    dd_Eli = pd.DataFrame(columns=[method, 'ENERO(DRL)', 'LS', method+'LS', 'ENERO', 'Topologies'])
-    dd_Janet = pd.DataFrame(columns=[method, 'ENERO(DRL)', 'LS', method+'LS', 'ENERO', 'Topologies'])
-    dd_Hurricane = pd.DataFrame(columns=[method, 'ENERO(DRL)', 'LS', method+'LS', 'ENERO', 'Topologies'])
+    dd_Eli = pd.DataFrame(columns=['OSPF', method, 'ENERO(DRL)', 'LS', method+'LS', 'ENERO', 'Topologies'])
+    dd_Janet = pd.DataFrame(columns=['OSPF', method, 'ENERO(DRL)', 'LS', method+'LS', 'ENERO', 'Topologies'])
+    dd_Hurricane = pd.DataFrame(columns=['OSPF', method, 'ENERO(DRL)', 'LS', method+'LS', 'ENERO', 'Topologies'])
 
     # Iterate over all topologies and evaluate our DRL agent on all TMs
     for folder in folders:
@@ -97,17 +97,17 @@ if __name__ == "__main__":
                     with open(path_to_pckl_rewards+file, 'rb') as f:
                         results = pickle.load(f)
                     if folder==folders[0]:
-                        dd_Eli.loc[it] = [0, results[9],results[7], 0,results[3],topology_eval_name]
+                        dd_Eli.loc[it] = [results[11], 0, results[9],results[7], 0,results[3],topology_eval_name]
                         cost_ls_top1.append(results[15])
                         cost_drl_top1.append(results[14])
                         cost_enero_top1.append(results[16])
                     elif folder==folders[1]:
-                        dd_Janet.loc[it] = [0, results[9],results[7], 0,results[3],topology_eval_name]
+                        dd_Janet.loc[it] = [results[11], 0, results[9],results[7], 0,results[3],topology_eval_name]
                         cost_ls_top2.append(results[15])
                         cost_drl_top2.append(results[14])
                         cost_enero_top2.append(results[16])
                     else:
-                        dd_Hurricane.loc[it] = [0, results[9],results[7], 0,results[3],topology_eval_name]
+                        dd_Hurricane.loc[it] = [results[11], 0, results[9],results[7], 0,results[3],topology_eval_name]
                         cost_ls_top3.append(results[15])
                         cost_drl_top3.append(results[14])
                         cost_enero_top3.append(results[16])
@@ -181,11 +181,9 @@ if __name__ == "__main__":
 
  
     # Define some hatches
-    hatches = cycle(['-', '|', '', '*', '/'])
+    hatches = cycle(['\\', '-', '|', '', '*', '/'])
     cdf = pd.concat([dd_Eli,dd_Janet,dd_Hurricane])
-    dd_Eli.to_csv(csv_path_to_dir+"result_EliBackbone.csv")
-    dd_Janet.to_csv(csv_path_to_dir+"result_Janetbackbone.csv")
-    dd_Hurricane.to_csv(csv_path_to_dir+"result_HurricaneElectric.csv")
+    cdf.to_csv(csv_path_to_dir+"result.csv")
     mdf = pd.melt(cdf, id_vars=['Topologies'], var_name=['Topology'])      # MELT
     ax = sns.boxplot(x="Topologies", y="value", hue="Topology", data=mdf, palette="mako")  # RUN PLOT
     plt.rcParams['axes.grid'] = True
