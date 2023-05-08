@@ -80,9 +80,9 @@ if __name__ == "__main__":
     if not os.path.exists(path_to_dir):
         os.makedirs(path_to_dir)
 
-    dd_Eli = pd.DataFrame(columns=['OSPF', method, 'ENERO(DRL)', 'LS', method+'LS', 'ENERO', 'Topologies'])
-    dd_Janet = pd.DataFrame(columns=['OSPF', method, 'ENERO(DRL)', 'LS', method+'LS', 'ENERO', 'Topologies'])
-    dd_Hurricane = pd.DataFrame(columns=['OSPF', method, 'ENERO(DRL)', 'LS', method+'LS', 'ENERO', 'Topologies'])
+    dd_Eli = pd.DataFrame(columns=['OSPF', method, 'ENERO(DRL)', 'LS', method+'+LS', 'ENERO', 'Topologies'])
+    dd_Janet = pd.DataFrame(columns=['OSPF', method, 'ENERO(DRL)', 'LS', method+'+LS', 'ENERO', 'Topologies'])
+    dd_Hurricane = pd.DataFrame(columns=['OSPF', method, 'ENERO(DRL)', 'LS', method+'+LS', 'ENERO', 'Topologies'])
 
     # Iterate over all topologies and evaluate our DRL agent on all TMs
     for folder in folders:
@@ -191,7 +191,7 @@ if __name__ == "__main__":
     plt.rcParams['axes.titlesize'] = 22
     plt.rcParams['xtick.labelsize'] = 22
     plt.rcParams['ytick.labelsize'] = 22
-    plt.rcParams['legend.fontsize'] = 24
+    plt.rcParams['legend.fontsize'] = 20
     ax.set_xlabel("",fontsize=0)
     ax.set_ylabel("Maximum Link Utilization",fontsize=24)
     plt.rcParams["axes.labelweight"] = "bold"
@@ -230,7 +230,7 @@ if __name__ == "__main__":
         patch.set_facecolor('None')
     
     plt.legend(loc='upper left', ncol=3)
-    plt.ylim((0.5, 1.2))
+    plt.ylim((0.5, 1.35))
     plt.tight_layout()
     plt.savefig(path_to_dir+'Figure_5.png', bbox_inches='tight',pad_inches = 0)
     plt.clf()
