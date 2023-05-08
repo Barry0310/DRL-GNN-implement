@@ -123,19 +123,19 @@ if __name__ == "__main__":
                         results = pickle.load(f)
                     if folder==folders[0]:
                         dd_Eli.loc[it, method] = results[9]
-                        dd_Eli.loc[it, method+'LS'] = results[3]
+                        dd_Eli.loc[it, method+'+LS'] = results[3]
                         cost_ls_top1.append(results[15])
                         cost_drl_top1.append(results[14])
                         cost_enero_top1.append(results[16])
                     elif folder==folders[1]:
                         dd_Janet.loc[it, method] = results[9]
-                        dd_Janet.loc[it, method + 'LS'] = results[3]
+                        dd_Janet.loc[it, method + '+LS'] = results[3]
                         cost_ls_top2.append(results[15])
                         cost_drl_top2.append(results[14])
                         cost_enero_top2.append(results[16])
                     else:
                         dd_Hurricane.loc[it, method] = results[9]
-                        dd_Hurricane.loc[it, method + 'LS'] = results[3]
+                        dd_Hurricane.loc[it, method + '+LS'] = results[3]
                         cost_ls_top3.append(results[15])
                         cost_drl_top3.append(results[14])
                         cost_enero_top3.append(results[16])
