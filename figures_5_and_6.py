@@ -183,7 +183,9 @@ if __name__ == "__main__":
     # Define some hatches
     hatches = cycle(['-', '|', '', '*', '/'])
     cdf = pd.concat([dd_Eli,dd_Janet,dd_Hurricane])
-    cdf.to_csv(csv_path_to_dir+"result.csv")
+    dd_Eli.to_csv(csv_path_to_dir+"result_EliBackbone.csv")
+    dd_Janet.to_csv(csv_path_to_dir+"result_Janetbackbone.csv")
+    dd_Hurricane.to_csv(csv_path_to_dir+"result_HurricaneElectric.csv")
     mdf = pd.melt(cdf, id_vars=['Topologies'], var_name=['Topology'])      # MELT
     ax = sns.boxplot(x="Topologies", y="value", hue="Topology", data=mdf, palette="mako")  # RUN PLOT
     plt.rcParams['axes.grid'] = True
