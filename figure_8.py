@@ -42,6 +42,11 @@ if __name__ == "__main__":
     our_fail_6 = np.zeros(num_topologies_x_link_failure * TMs)
     our_fail_8 = np.zeros(num_topologies_x_link_failure * TMs)
 
+    our_ls_fail_2 = np.zeros(num_topologies_x_link_failure * TMs)
+    our_ls_fail_4 = np.zeros(num_topologies_x_link_failure * TMs)
+    our_ls_fail_6 = np.zeros(num_topologies_x_link_failure * TMs)
+    our_ls_fail_8 = np.zeros(num_topologies_x_link_failure * TMs)
+
     fail_2 = np.zeros(num_topologies_x_link_failure*TMs)
     fail_4 = np.zeros(num_topologies_x_link_failure*TMs)
     fail_6 = np.zeros(num_topologies_x_link_failure*TMs)
@@ -132,26 +137,30 @@ if __name__ == "__main__":
 
                     if num_links_failure == 1:
                         our_fail_2[topology_id * TMs + tm_id] = results[9]
+                        our_ls_fail_2[topology_id * TMs + tm_id] = results[3]
                     elif num_links_failure == 2:
                         our_fail_4[topology_id * TMs + tm_id] = results[9]
+                        our_ls_fail_4[topology_id * TMs + tm_id] = results[3]
                     elif num_links_failure == 3:
                         our_fail_6[topology_id * TMs + tm_id] = results[9]
+                        our_ls_fail_6[topology_id * TMs + tm_id] = results[3]
                     elif num_links_failure == 4:
                         our_fail_8[topology_id * TMs + tm_id] = results[9]
+                        our_ls_fail_8[topology_id * TMs + tm_id] = results[3]
 
     # Make all boxplots in one
     lk_fail = [2, 4, 6, 8]
 
     # This is to compute the average of 50 TMs and for Enero and for DEFO
-    dd2_aux = np.zeros((TMs,3))
-    dd4_aux = np.zeros((TMs,3))
-    dd6_aux = np.zeros((TMs,3))
-    dd8_aux = np.zeros((TMs,3))
+    dd2_aux = np.zeros((TMs,4))
+    dd4_aux = np.zeros((TMs,4))
+    dd6_aux = np.zeros((TMs,4))
+    dd8_aux = np.zeros((TMs,4))
 
-    dd2 = pd.DataFrame(columns=[method,'Enero','DEFO', 'Number Link Failures'])
-    dd4 = pd.DataFrame(columns=[method,'Enero','DEFO', 'Number Link Failures'])
-    dd6 = pd.DataFrame(columns=[method,'Enero','DEFO', 'Number Link Failures'])
-    dd8 = pd.DataFrame(columns=[method,'Enero','DEFO', 'Number Link Failures'])
+    dd2 = pd.DataFrame(columns=[method,method+'+LS','Enero','DEFO', 'Number Link Failures'])
+    dd4 = pd.DataFrame(columns=[method,method+'+LS','Enero','DEFO', 'Number Link Failures'])
+    dd6 = pd.DataFrame(columns=[method,method+'+LS','Enero','DEFO', 'Number Link Failures'])
+    dd8 = pd.DataFrame(columns=[method,method+'+LS','Enero','DEFO', 'Number Link Failures'])
 
     for num_fail in lk_fail:
         it = 0
@@ -163,37 +172,41 @@ if __name__ == "__main__":
             for tm_id in range(TMs):
                 if num_fail==2:
                     dd2_aux[tm_id, 0] = our_fail_2[topology_id * TMs + tm_id]
-                    dd2_aux[tm_id,1]=fail_2[topology_id*TMs+tm_id]
-                    dd2_aux[tm_id,2]=defo_fail_2[topology_id*TMs+tm_id]
+                    dd2_aux[tm_id, 1] = our_ls_fail_2[topology_id * TMs + tm_id]
+                    dd2_aux[tm_id,2]=fail_2[topology_id*TMs+tm_id]
+                    dd2_aux[tm_id,3]=defo_fail_2[topology_id*TMs+tm_id]
                     #dd2_aux[tm_id,3]=sap_fail_2[topology_id*TMs+tm_id]
                 if num_fail == 4:
                     dd4_aux[tm_id, 0] = our_fail_4[topology_id * TMs + tm_id]
-                    dd4_aux[tm_id,1]=fail_4[topology_id*TMs+tm_id]
-                    dd4_aux[tm_id,2]=defo_fail_4[topology_id*TMs+tm_id]
+                    dd4_aux[tm_id, 1] = our_ls_fail_4[topology_id * TMs + tm_id]
+                    dd4_aux[tm_id,2]=fail_4[topology_id*TMs+tm_id]
+                    dd4_aux[tm_id,3]=defo_fail_4[topology_id*TMs+tm_id]
                     #dd4_aux[tm_id,3]=sap_fail_4[topology_id*TMs+tm_id]
                 if num_fail == 6:
                     dd6_aux[tm_id, 0] = our_fail_6[topology_id * TMs + tm_id]
-                    dd6_aux[tm_id,1]=fail_6[topology_id*TMs+tm_id]
-                    dd6_aux[tm_id,2]=defo_fail_6[topology_id*TMs+tm_id]
+                    dd6_aux[tm_id, 1] = our_ls_fail_6[topology_id * TMs + tm_id]
+                    dd6_aux[tm_id,2]=fail_6[topology_id*TMs+tm_id]
+                    dd6_aux[tm_id,3]=defo_fail_6[topology_id*TMs+tm_id]
                     #dd6_aux[tm_id,3]=sap_fail_6[topology_id*TMs+tm_id]
                 if num_fail == 8:
                     dd8_aux[tm_id, 0] = our_fail_8[topology_id * TMs + tm_id]
-                    dd8_aux[tm_id,1]=fail_8[topology_id*TMs+tm_id]
-                    dd8_aux[tm_id,2]=defo_fail_8[topology_id*TMs+tm_id]
+                    dd8_aux[tm_id, 1] = our_ls_fail_8[topology_id * TMs + tm_id]
+                    dd8_aux[tm_id,2]=fail_8[topology_id*TMs+tm_id]
+                    dd8_aux[tm_id,3]=defo_fail_8[topology_id*TMs+tm_id]
                     #dd8_aux[tm_id,3]=sap_fail_8[topology_id*TMs+tm_id]
             
             if num_fail==2:
-                dd2.loc[it] = [np.mean(dd2_aux[:,0]), np.mean(dd2_aux[:,1]), np.mean(dd2_aux[:,2]), num_fail]
+                dd2.loc[it] = [np.mean(dd2_aux[:,0]), np.mean(dd2_aux[:,1]), np.mean(dd2_aux[:,2]), np.mean(dd2_aux[:,3]), num_fail]
             if num_fail == 4:
-                dd4.loc[it] = [np.mean(dd4_aux[:,0]), np.mean(dd4_aux[:,1]), np.mean(dd4_aux[:,2]), num_fail]
+                dd4.loc[it] = [np.mean(dd4_aux[:,0]), np.mean(dd4_aux[:,1]), np.mean(dd4_aux[:,2]), np.mean(dd4_aux[:,3]), num_fail]
             if num_fail == 6:
-                dd6.loc[it] = [np.mean(dd6_aux[:,0]), np.mean(dd6_aux[:,1]), np.mean(dd6_aux[:,2]), num_fail]
+                dd6.loc[it] = [np.mean(dd6_aux[:,0]), np.mean(dd6_aux[:,1]), np.mean(dd6_aux[:,2]), np.mean(dd6_aux[:,3]), num_fail]
             if num_fail == 8:
-                dd8.loc[it] = [np.mean(dd8_aux[:,0]), np.mean(dd8_aux[:,1]), np.mean(dd8_aux[:,2]), num_fail]
+                dd8.loc[it] = [np.mean(dd8_aux[:,0]), np.mean(dd8_aux[:,1]), np.mean(dd8_aux[:,2]), np.mean(dd8_aux[:,3]), num_fail]
             it += 1
     
     # Define some hatches
-    hatches = cycle(['\\', 'O', '/'])
+    hatches = cycle(['\\', 'O', '/', '-'])
     cdf = pd.concat([dd2,dd4,dd6,dd8])
     cdf.to_csv(csv_path_to_dir+"link_failure_"+topology_Name+".csv")
     mdf = pd.melt(cdf, id_vars=['Number Link Failures'], var_name=['Topology'])      # MELT
