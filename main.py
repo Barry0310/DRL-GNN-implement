@@ -26,7 +26,7 @@ if __name__ == '__main__':
     take_critic_demands = True  # True if we want to take the demands from the most critical links, True if we want to take the largest
     percentage_demands = 15  # Percentage of demands that will be used in the optimization
     K_path = True
-    K = 15
+    K = 20
     str_perctg_demands = str(percentage_demands)
     percentage_demands /= 100
 
@@ -49,7 +49,7 @@ if __name__ == '__main__':
         'feature_size': 20,
         't': 4,
         'readout_units': 20,
-        'lr': 0.0002,
+        'lr': 0.0008,
         'gamma': 0.99,
         'alpha': 0.25,
         'batch_size': 256,

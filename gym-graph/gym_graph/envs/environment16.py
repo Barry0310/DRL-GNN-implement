@@ -92,7 +92,9 @@ class Env16(gym.Env):
 
         # We store the edge that has maximum utilization
         # (src, dst, MaxUtilization)
-        self.edgeMaxUti = None 
+        self.edgeMaxUti = None
+        # (src, dst, StdUtilization)
+        self.edgeStdUti = None
         # We store the edge that has minimum utilization
         # (src, dst, MaxUtilization)
         self.edgeMinUti = None 
@@ -631,7 +633,9 @@ class Env16(gym.Env):
         
         # Find new maximum and minimum utilization link
         old_Utilization = self.edgeMaxUti[2]
+        old_Utilization_std = self.edgeStdUti
         self.edgeMaxUti = (0, 0, 0)
+        self.edgeStdUti = 0
         uti_list = []
         for i in self.graph:
             for j in self.graph[i]:
@@ -645,7 +649,9 @@ class Env16(gym.Env):
          
         self.currentVal = -self.edgeMaxUti[2]
 
-        self.reward = np.around((10*(old_Utilization-self.edgeMaxUti[2])-np.std(uti_list)/10), 3)
+        self.edgeStdUti = np.std(uti_list)
+        self.reward = np.around(10*((old_Utilization-self.edgeMaxUti[2]) + (old_Utilization_std-self.edgeStdUti)), 3)
+        #self.reward = np.around((10*(old_Utilization-self.edgeMaxUti[2])-np.std(uti_list)/10), 3)
 
         # If we didn't iterate over all demands 
         if self.iter_list_elig_demn<len(self.list_eligible_demands):
@@ -697,6 +703,7 @@ class Env16(gym.Env):
         self.edgeMaxUti = (0, 0, 0)
         # This list is used to obtain the top K flows from the critical links
         list_link_uti_id = list()
+        uti_list = []
         for i in self.graph:
             for j in self.graph[i]:
                 position = self.edgesDict[str(i)+':'+str(j)]
@@ -707,8 +714,10 @@ class Env16(gym.Env):
                 list_link_uti_id.append((self.edge_state[position][0], i, j))
                 
                 norm_edge_state_capacity = self.edge_state[position][0]/link_capacity
+                uti_list.append(norm_edge_state_capacity)
                 if norm_edge_state_capacity>self.edgeMaxUti[2]:
                     self.edgeMaxUti = (i, j, norm_edge_state_capacity)
+        self.edgeStdUti = np.std(uti_list)
         
         if self.top_K_critical_demands:
             list_link_uti_id = sorted(list_link_uti_id, key=lambda tup: tup[0], reverse=True)[:self.num_critical_links]
