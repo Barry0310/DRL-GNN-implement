@@ -589,21 +589,21 @@ if __name__ == "__main__":
         'feature_size': 20,
         't': 4,
         'readout_units': 20,
-        'lr': 0.0002,
-        'gamma': 0.99,
-        'alpha': 0.25,
-        'batch_size': 1500,
+        'a_lr': 0.0003,
+        'c_ls': 0.0015,
+        'gamma': 0.9,
+        'alpha': 0.1,
+        'batch_size': 128,
         'buffer_size': 200000,
-        'buffer_threshold': 5000,
-        'update_freq': 100,
-        'max_a_dim': 1,
+        'buffer_threshold': 10000,
+        'update_freq': 8,
         'avg_a_dim': 1
     }
 
     DRL_SP_Agent = SACD(hyper_parameter)
     if K_path:
         DRL_SP_Agent.K_path = K
-        DRL_SP_Agent.target_entropy = 0.5 * (-np.log(1 / K))
+        DRL_SP_Agent.target_entropy = 0.3 * (-np.log(1 / K))
     model_dir = "./models" + differentiation_str
     DRL_SP_Agent.actor.load_state_dict(torch.load(model_dir + f"/actor_{model_id}.pt"))
     print("Restored DRL_SP model ", "/actor_" + str(model_id))

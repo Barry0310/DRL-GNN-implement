@@ -228,8 +228,10 @@ if __name__ == "__main__":
         #patch.set_edgecolor(col)
         patch.set_edgecolor("black")
         patch.set_facecolor('None')
-    
-    plt.legend(loc='upper left', ncol=3)
+
+    handle, label = plt.gca().get_legend_handles_labels()
+    order = [0, 3, 1, 4, 2, 5]
+    plt.legend([handle[i] for i in order], [label[i] for i in order], loc='upper left', ncol=3)
     plt.ylim((0.5, 1.35))
     plt.tight_layout()
     plt.savefig(path_to_dir+'Figure_5.png', bbox_inches='tight',pad_inches = 0)

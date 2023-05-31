@@ -20,13 +20,13 @@ class SACD:
         self.alpha = hp['alpha']
         self.target_entropy = 0.5 * (-np.log(1 / hp['avg_a_dim']))  # H(discrete)>0
         self.log_alpha = torch.tensor(np.log(self.alpha), dtype=torch.float32, requires_grad=True, device=device)
-        self.alpha_optimizer = torch.optim.AdamW([self.log_alpha], lr=hp['lr'])
+        self.alpha_optimizer = torch.optim.AdamW([self.log_alpha], lr=hp['a_lr'])
 
         self.actor = Actor(feature_size=self.feature_size, t=hp['t'], readout_units=hp['readout_units']).to(self.device)
-        self.a_optimizer = optim.AdamW(self.actor.parameters(), lr=hp['lr'])
+        self.a_optimizer = optim.AdamW(self.actor.parameters(), lr=hp['a_lr'])
 
         self.critic = Critic(feature_size=self.feature_size, t=hp['t'], readout_units=hp['readout_units']).to(self.device)
-        self.c_optimizer = optim.AdamW(self.critic.parameters(), lr=hp['lr']*5)
+        self.c_optimizer = optim.AdamW(self.critic.parameters(), lr=hp['c_lr']*5)
         self.critic_target = copy.deepcopy(self.critic)
 
         self.replay_buffer = deque(maxlen=hp['buffer_size'])
@@ -171,7 +171,7 @@ class SACD:
         q_loss /= self.batch_size
         self.c_optimizer.zero_grad()
         q_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=5)
+        #torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=5)
         self.c_optimizer.step()
 
         # ------------------------------------------ Train Actor ----------------------------------------#
@@ -192,7 +192,7 @@ class SACD:
         a_loss /= self.batch_size
         self.a_optimizer.zero_grad()
         a_loss.backward()
-        torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=5)
+        #torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=5)
         self.a_optimizer.step()
 
         for params in self.critic.parameters():

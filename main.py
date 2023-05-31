@@ -49,13 +49,14 @@ if __name__ == '__main__':
         'feature_size': 20,
         't': 4,
         'readout_units': 20,
-        'lr': 0.0008,
-        'gamma': 0.99,
-        'alpha': 0.25,
-        'batch_size': 256,
-        'buffer_size': 100000,
-        'buffer_threshold': 5000,
-        'update_freq': 16,
+        'a_lr': 0.0003,
+        'c_ls': 0.0015,
+        'gamma': 0.9,
+        'alpha': 0.1,
+        'batch_size': 128,
+        'buffer_size': 200000,
+        'buffer_threshold': 10000,
+        'update_freq': 8,
         'avg_a_dim': 1
     }
 
@@ -125,12 +126,12 @@ if __name__ == '__main__':
     AC_policy = SACD(hyper_parameter)
     if K_path:
         AC_policy.K_path = K
-        AC_policy.target_entropy = 0.5 * (-np.log(1 / K))
+        AC_policy.target_entropy = 0.3 * (-np.log(1 / K))
     for iters in range(100):
 
-        for e in range(10):
+        for e in range(20):
 
-            print(f"Episode {iters*10+e}")
+            print(f"Episode {iters*20+e}")
 
             for topo in range(len(env_training)):
                 tm_id = random.sample(training_tm_ids, 1)[0]
@@ -141,7 +142,10 @@ if __name__ == '__main__':
                     while True:
                         action_dist, tensor = AC_policy.predict(env_training[topo], src, dst, demand)
 
-                        action = np.random.choice(len(action_dist), p=action_dist.cpu().detach().numpy())
+                        if total_step < hyper_parameter['buffer_threshold']:
+                            action = np.random.choice(K)
+                        else:
+                            action = np.random.choice(len(action_dist), p=action_dist.cpu().detach().numpy())
                         reward, done, _, demand, src, dst, _, _, _ = env_training[topo].step(action, demand, src, dst)
                         mask = not done
 
@@ -176,6 +180,8 @@ if __name__ == '__main__':
                 for tm_id in range(EVALUATION_EPISODES):
                     demand, src, dst = env_eval[topo].reset(tm_id=tm_id)
                     total_reward = 0
+                    mlu_reward = 0
+                    uti_reward = 0
                     posi = EVALUATION_EPISODES * topo + tm_id
                     while True:
                         with torch.no_grad():
@@ -186,19 +192,21 @@ if __name__ == '__main__':
                             env_eval[topo].step(action, demand, src, dst)
 
                         total_reward += reward
+                        mlu_reward += error_eval_links
+                        uti_reward += min_link_uti
                         if done:
                             break
                     rewards_test[posi] = total_reward
-                    error_links[posi] = error_eval_links
+                    error_links[posi] = mlu_reward
                     max_link_utis[posi] = max_link_uti[2]
-                    min_link_utis[posi] = min_link_uti
+                    min_link_utis[posi] = uti_reward
                     uti_stds[posi] = uti_std
 
             eval_mean_reward = np.mean(rewards_test)
             fileLogs.write(";," + str(np.mean(uti_stds)) + ",\n")
             fileLogs.write("+," + str(np.mean(error_links)) + ",\n")
             fileLogs.write("<," + str(np.amax(max_link_utis)) + ",\n")
-            fileLogs.write(">," + str(np.amax(min_link_utis)) + ",\n")
+            fileLogs.write(">," + str(np.mean(min_link_utis)) + ",\n")
             fileLogs.write("ENTR," + str(AC_policy.alpha) + ",\n")
             fileLogs.write("REW," + str(eval_mean_reward) + ",\n")
             fileLogs.write("lr," + str(0.0002) + ",\n")

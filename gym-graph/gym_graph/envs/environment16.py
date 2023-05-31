@@ -650,7 +650,7 @@ class Env16(gym.Env):
         self.currentVal = -self.edgeMaxUti[2]
 
         self.edgeStdUti = np.std(uti_list)
-        self.reward = np.around(10*((old_Utilization-self.edgeMaxUti[2]) + (old_Utilization_std-self.edgeStdUti)), 3)
+        self.reward = np.around(10*(0.6*(old_Utilization-self.edgeMaxUti[2]) + 0.4*(old_Utilization_std-self.edgeStdUti)), 3)
         #self.reward = np.around((10*(old_Utilization-self.edgeMaxUti[2])-np.std(uti_list)/10), 3)
 
         # If we didn't iterate over all demands 
@@ -675,7 +675,7 @@ class Env16(gym.Env):
         # We desmark the bw_allocated
         self.edge_state[:,2] = 0
 
-        return self.reward, self.episode_over, 0.0, self.TM[self.patMaxBandwth[0]][self.patMaxBandwth[1]], self.patMaxBandwth[0], self.patMaxBandwth[1], self.edgeMaxUti, 0.0, np.std(self.edge_state[:,0])
+        return self.reward, self.episode_over, 10*(old_Utilization-self.edgeMaxUti[2]), self.TM[self.patMaxBandwth[0]][self.patMaxBandwth[1]], self.patMaxBandwth[0], self.patMaxBandwth[1], self.edgeMaxUti, 10*(old_Utilization_std-self.edgeStdUti), np.std(self.edge_state[:,0])
 
     def reset(self, tm_id, best_routing=None):
         """
