@@ -50,7 +50,7 @@ if __name__ == '__main__':
         't': 4,
         'readout_units': 20,
         'a_lr': 0.0003,
-        'c_ls': 0.0015,
+        'c_lr': 0.0015,
         'gamma': 0.9,
         'alpha': 0.1,
         'batch_size': 128,
@@ -147,9 +147,8 @@ if __name__ == '__main__':
                         else:
                             action = np.random.choice(len(action_dist), p=action_dist.cpu().detach().numpy())
                         reward, done, _, demand, src, dst, _, _, _ = env_training[topo].step(action, demand, src, dst)
-                        mask = not done
 
-                        AC_policy.add_exp(env_training[topo], tensor, src, dst, demand, action, reward, mask)
+                        AC_policy.add_exp(env_training[topo], tensor, src, dst, demand, action, reward, done)
 
                         total_step += 1
                         step += 1

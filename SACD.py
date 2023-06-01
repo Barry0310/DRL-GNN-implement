@@ -26,7 +26,7 @@ class SACD:
         self.a_optimizer = optim.AdamW(self.actor.parameters(), lr=hp['a_lr'])
 
         self.critic = Critic(feature_size=self.feature_size, t=hp['t'], readout_units=hp['readout_units']).to(self.device)
-        self.c_optimizer = optim.AdamW(self.critic.parameters(), lr=hp['c_lr']*5)
+        self.c_optimizer = optim.AdamW(self.critic.parameters(), lr=hp['c_lr'])
         self.critic_target = copy.deepcopy(self.critic)
 
         self.replay_buffer = deque(maxlen=hp['buffer_size'])
@@ -160,7 +160,7 @@ class SACD:
                 next_q1, next_q2 = self.critic_target(batch_data[i]['stp1'])
                 min_next_q = torch.min(next_q1, next_q2)
                 v_next = torch.sum(next_probs * (min_next_q - self.alpha * next_log_probs))
-                target_q = batch_data[i]['r'] + batch_data[i]['done'] * self.gamma * v_next
+                target_q = batch_data[i]['r'] + (1-batch_data[i]['done']) * self.gamma * v_next
 
             '''Update soft Q net'''
             q1_all, q2_all = self.critic(batch_data[i]['st'])
