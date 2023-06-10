@@ -590,7 +590,7 @@ if __name__ == "__main__":
         't': 4,
         'readout_units': 20,
         'a_lr': 0.0003,
-        'c_ls': 0.0015,
+        'c_lr': 0.0015,
         'gamma': 0.9,
         'alpha': 0.1,
         'batch_size': 128,
