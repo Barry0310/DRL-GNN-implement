@@ -591,7 +591,7 @@ if __name__ == "__main__":
     general_dataset_folder = args.f[0]
     scenario = drl_eval_res_folder.split('-')[1]
 
-    defo_stnd_out_file = "../DEFOResults/results-1-link_capacity-unif-05-1-zoo/"+graph_topology_name+"/standard_out_"+graph_topology_name+"_"+str(tm_id)
+    defo_stnd_out_file = "../Enero_datasets/DEFOResults/results-1-link_capacity-unif-05-1-zoo/"+graph_topology_name+"/standard_out_"+graph_topology_name+"_"+str(tm_id)
     results = np.zeros(17)
 
     K_path = KP
