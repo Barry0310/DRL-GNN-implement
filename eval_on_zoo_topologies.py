@@ -65,7 +65,7 @@ if __name__ == "__main__":
     for subdir, dirs, files in os.walk(dataset_folder):
         for file in files:
             if file.endswith((".graph")):
-                topology_dir = dataset_folder + file.split('.')[0] + '/'
+                topology_dir = dataset_folder + '/' + file.split('.')[0] + '/'
                 topology_num_nodes = 0
                 with open(topology_dir+file) as fd:
                     # Loop to read the Number of NODES and EDGES
