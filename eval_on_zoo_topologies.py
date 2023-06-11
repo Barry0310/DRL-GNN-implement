@@ -45,7 +45,7 @@ if __name__ == "__main__":
                 model_id = int(arrayLine[2].split(",")[0])
                 break
 
-    dataset_folder = "../Enero_datasets/results-1-link_capacity-unif-05-1/results_zoo"
+    dataset_folder = "../Enero_datasets/results-1-link_capacity-unif-05-1/results_zoo/"
     # In this folder we store the rewards that later will be parsed for plotting
     drl_eval_res_folder = "../Enero_datasets/rwds-results-1-link_capacity-unif-05-1-zoo/"
 
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     for subdir, dirs, files in os.walk(dataset_folder):
         for file in files:
             if file.endswith((".graph")):
-                topology_dir = dataset_folder + '/' + file.split('.')[0] + '/'
+                topology_dir = dataset_folder + file.split('.')[0] + '/'
                 topology_num_nodes = 0
                 with open(topology_dir+file) as fd:
                     # Loop to read the Number of NODES and EDGES
