@@ -446,7 +446,7 @@ def play_DRL_GNN_sp_hill_climbing_games(tm_id, best_routing, list_of_demands_to_
     end = tt.time()
     return currentVal*(-1), end-start
 
-def play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change, timesteps, time_start_DRL):
+def play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change):
     # Here we use sp in hill climbing to select the middlepoint and to evaluate
     env_hill_climb = gym.make(ENV_SIMM_ANEAL_AGENT)
     env_hill_climb.seed(SEED)
@@ -474,7 +474,7 @@ def play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_
         # We apply the new chosen action to the selected demand
         currentVal = env_hill_climb.step_hill_sp(action, source, dest)
         timer = tt.time()
-        timesteps.append((timer - time_start_DRL, currentVal * (-1)))
+        #timesteps.append((timer - time_start_DRL, currentVal * (-1)))
     end = tt.time()
     return currentVal * (-1), end - start
 
