@@ -625,7 +625,7 @@ if __name__ == "__main__":
     
     max_link_uti_DRL_SP, optim_cost_DRL_GNN, OSPF_init, best_routing, list_of_demands_to_change = play_middRout_games_sp(tm_id, env_DRL_SP, DRL_SP_Agent)
     
-    max_link_uti_DRL_SP_HILL, optim_cost_DRL_HILL = play_DRL_GNN_sp_hill_climbing_games(tm_id, best_routing, list_of_demands_to_change)
+    max_link_uti_DRL_SP_HILL, optim_cost_DRL_HILL = play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change)
 
     results[1] = read_max_load_link(defo_stnd_out_file)[1] # Store defoCP maximum loaded link
     results[3] = max_link_uti_DRL_SP_HILL 
