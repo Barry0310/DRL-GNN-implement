@@ -38,7 +38,7 @@ if __name__ == "__main__":
     # This script is to obtain the figure 10 from Conext 2021 paper.
 
     # Before executing this file we must execute the eval_on_zoo_topologies.py file to evaluate the DRL model and store the results
-    # python figure_9.py -d SP_3top_15_B_NEW -p ../rwds-results-1-link_capacity-unif-05-1-zoo
+    # python figure_9.py -d SP_3top_15_B_NEW -p ../Enero_datasets/rwds-results-1-link_capacity-unif-05-1-zoo
 
     parser = argparse.ArgumentParser(description='Parse files and create plots')
 
@@ -208,15 +208,15 @@ if __name__ == "__main__":
     plt.xticks(np.arange(0, 75, 8))
     #plt.plot(X_axis, np.array(uti_SAP)*100, c='darkorange', linestyle='--', label="SAP", linewidth=3)
     plt.plot(X_axis, np.array(uti_ENERO_DRL) * 100, c='darkorange', linestyle='--', label="ENERO(DRL)", linewidth=3)
+    plt.plot(X_axis, np.array(uti_ENERO) * 100, c='darkgreen', linestyle='-', label="ENERO", linewidth=3)
     #plt.plot(X_axis, uti_MLP, c='aqua', linestyle='-', label="MLP", linewidth=3)
     plt.plot(X_axis, np.array(uti_DRL_SP)*100, c='dimgrey', linestyle='-.', label=method, linewidth=3)
-    plt.plot(X_axis, np.array(uti_ENERO)*100, c='darkgreen', linestyle='-', label="ENERO", linewidth=3)
+    plt.plot(X_axis, np.array(uti_DRL_HILL) * 100, c='red', linestyle='-.', label=method + "+LS", linewidth=3)
     plt.plot(X_axis, np.array(uti_DEFO)*100, c='darkblue', linestyle=':', label="DEFO", linewidth=3)
-    plt.plot(X_axis, np.array(uti_DRL_HILL)*100, c='red', linestyle='-.', label=method+"+LS", linewidth=3)
 
     plt.ylabel("Relative performance w.r.t.\nENERO (%)", fontsize=16)
     plt.xlabel("Topology identifier", fontsize=19)
-    lgd = plt.legend(loc="lower left", bbox_to_anchor=(-0.2, -0.4), ncol=4)
+    lgd = plt.legend(loc="lower left", bbox_to_anchor=(-0.2, -0.4), ncol=3)
     plt.grid(c='grey')
     #plt.tight_layout()
     plt.savefig(path_to_dir+"Figure_9_Rel_Perf_all_tops.png", bbox_extra_artists=(lgd,), bbox_inches='tight')
