@@ -56,6 +56,7 @@ if __name__ == "__main__":
     uti_sim_anneal = []
     #uti_SAP = []
     uti_ENERO = []
+    uti_ENERO_DRL = []
     uti_DRL_SP = []
     #uti_MLP = []
     uti_ALL = []
@@ -89,6 +90,7 @@ if __name__ == "__main__":
         my_method_to_topology_rewards = directory+"/"+filename
         #aux_sim_anneal = []
         aux_enero = []
+        aux_enero_drl = []
         #aux_SAP = []
         #aux_MLP = []
         aux_DRL_SP = []
@@ -118,6 +120,7 @@ if __name__ == "__main__":
                     
                     #aux_sim_anneal.append(results[4])
                     aux_enero.append(results[3])
+                    aux_enero_drl.append(results[9])
                     #aux_SAP.append(results[8])
                     #aux_MLP.append(results[5])
                     aux_DRL_SP.append(my_results[9])
@@ -136,6 +139,7 @@ if __name__ == "__main__":
         uti_DRL_SP.append((sim_anneal_mean-np.mean(aux_DRL_SP))/sim_anneal_mean)
         uti_DRL_HILL.append((sim_anneal_mean-np.mean(aux_DRL_HILL))/sim_anneal_mean)
         uti_ENERO.append((sim_anneal_mean-np.mean(aux_enero))/sim_anneal_mean)
+        uti_ENERO_DRL.append((sim_anneal_mean - np.mean(aux_enero_drl)) / sim_anneal_mean)
         uti_DEFO.append((sim_anneal_mean-np.mean(aux_DEFO))/sim_anneal_mean)
         
         cost_DEFO.append(np.mean(aux_cost_DEFO))
@@ -150,15 +154,18 @@ if __name__ == "__main__":
 
     # We do the following to order the scores
     for i in range(len(X_axis)):
-        uti_ALL.append((filename_list[i], 1, uti_DRL_SP[i], 1, uti_DRL_HILL[i], cost_SAP[i], cost_DRL_SP[i], cost_DRL_HILL[i], uti_ENERO[i], cost_HILL[i], uti_DEFO[i], cost_DEFO[i], 1, 0))
+        uti_ALL.append((filename_list[i], uti_ENERO_DRL[i], uti_DRL_SP[i], 1, uti_DRL_HILL[i], cost_SAP[i], cost_DRL_SP[i], cost_DRL_HILL[i], uti_ENERO[i], cost_HILL[i], uti_DEFO[i], cost_DEFO[i], 1, 0))
 
     new_uti_ALL = sorted(uti_ALL, key=lambda tup: tup[4], reverse=False)
-    print(new_uti_ALL)
+    print([x[0] for x in new_uti_ALL])
     print(len(new_uti_ALL))
     dict_tops = dict()
     dict_tops["BtAsiaPac"] = 1
     dict_tops["Goodnet"] = 1
     dict_tops["Garr199905"] = 1
+    dict_tops["EliBackbone"] = 1
+    dict_tops["Janetbackbone"] = 1
+    dict_tops["HurricaneElectric"] = 1
     for i in range(len(X_axis)):
         if new_uti_ALL[i][0] in dict_tops:
             print(i, new_uti_ALL[i][0])
@@ -167,6 +174,7 @@ if __name__ == "__main__":
     uti_DRL_HILL = []
     uti_ENERO = []
     uti_DEFO = []
+    uti_ENERO_DRL = []
 
     cost_DEFO = []
     cost_SAP = []
@@ -181,6 +189,7 @@ if __name__ == "__main__":
         uti_DRL_SP.append(elem[2])
         uti_DRL_HILL.append(elem[4])
         uti_ENERO.append(elem[8])
+        uti_ENERO_DRL.append(elem[1])
         uti_DEFO.append(elem[10])
         #cost_SAP.append(elem[5])
         cost_DRL_SP.append(elem[6])
@@ -198,6 +207,7 @@ if __name__ == "__main__":
 
     plt.xticks(np.arange(0, 75, 8))
     #plt.plot(X_axis, np.array(uti_SAP)*100, c='darkorange', linestyle='--', label="SAP", linewidth=3)
+    plt.plot(X_axis, np.array(uti_ENERO_DRL) * 100, c='darkorange', linestyle='--', label="ENERO(DRL)", linewidth=3)
     #plt.plot(X_axis, uti_MLP, c='aqua', linestyle='-', label="MLP", linewidth=3)
     plt.plot(X_axis, np.array(uti_DRL_SP)*100, c='dimgrey', linestyle='-.', label=method, linewidth=3)
     plt.plot(X_axis, np.array(uti_ENERO)*100, c='darkgreen', linestyle='-', label="ENERO", linewidth=3)
