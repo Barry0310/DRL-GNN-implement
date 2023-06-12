@@ -159,6 +159,9 @@ if __name__ == "__main__":
     new_uti_ALL = sorted(uti_ALL, key=lambda tup: tup[4], reverse=False)
     print([x[0] for x in new_uti_ALL])
     print(len(new_uti_ALL))
+    print([x[0] for x in new_uti_ALL if x[4] > 0])
+    print([x[0] for x in new_uti_ALL if x[4] == 0])
+    print([x[0] for x in new_uti_ALL if x[4] < 0])
     dict_tops = dict()
     dict_tops["BtAsiaPac"] = 1
     dict_tops["Goodnet"] = 1
