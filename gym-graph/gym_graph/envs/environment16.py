@@ -11,6 +11,7 @@ import os.path
 import gc
 import defo_process_results as defoResults
 import matplotlib.pyplot as plt
+from itertools import cycle
 
 class Env16(gym.Env):
     """
@@ -74,6 +75,8 @@ class Env16(gym.Env):
         self.paths_Matrix_from_routing = None # We store a list of paths extracted from the routing matrix for each src-dst pair
 
         self.K = None
+        self.use_K_path = False
+        self.sp_pathk = None # For each src,dst we store the nodeId of the path k
         self.nodes = None # List of nodes to pick randomly from them
         self.ordered_edges = None
         self.edgesDict = dict() # Stores the position id of each edge in order
@@ -89,7 +92,9 @@ class Env16(gym.Env):
 
         # We store the edge that has maximum utilization
         # (src, dst, MaxUtilization)
-        self.edgeMaxUti = None 
+        self.edgeMaxUti = None
+        # (src, dst, StdUtilization)
+        self.edgeStdUti = None
         # We store the edge that has minimum utilization
         # (src, dst, MaxUtilization)
         self.edgeMinUti = None 
@@ -162,6 +167,19 @@ class Env16(gym.Env):
                     # Remove paths not needed
                     del self.allPaths[str(n1)+':'+str(n2)][path:len(self.allPaths[str(n1)+':'+str(n2)])]
                     gc.collect()
+
+    def k_shortest_path(self):
+        D = nx.DiGraph()
+        for u, v in self.graph.edges():
+            if not D.has_edge(u, v):
+                D.add_edge(u, v)
+        for n1 in range(0, self.numNodes):
+            for n2 in range(0, self.numNodes):
+                if n1 != n2:
+                    c = cycle(nx.shortest_simple_paths(D, n1, n2))
+                    self.allPaths[str(n1) + ':' + str(n2)] = list(next(c) for _ in range(self.K))
+        gc.collect()
+
     
     def decrease_links_utilization_sp(self, src, dst, init_source, final_destination):
         # In this function we desallocate the bandwidth by segments. This funcion is used when we want
@@ -170,6 +188,10 @@ class Env16(gym.Env):
         # We obtain the demand from the original source,destination pair
         bw_allocated = self.TM[init_source][final_destination]
         currentPath = self.shortest_paths[src,dst]
+
+        srcdst = str(init_source)+':'+str(final_destination)
+        if self.use_K_path and srcdst in self.sp_pathk:
+            currentPath = self.allPaths[srcdst][self.sp_pathk[srcdst]]
 
         i = 0
         j = 1
@@ -546,7 +568,7 @@ class Env16(gym.Env):
         btwns = nx.edge_betweenness_centrality(self.graph)
 
         self.K = K
-        if self.K>self.numNodes:
+        if not self.use_K_path and self.K>self.numNodes:
             self.K = self.numNodes
 
         self.edge_state = np.zeros((self.numEdges, 3))
@@ -575,19 +597,29 @@ class Env16(gym.Env):
         # We create the list of nodes ids to pick randomly from them
         self.nodes = list(range(0,self.numNodes))
 
-        self.compute_middlepoint_set_remove_rep_actions_no_loop()
+        if self.use_K_path:
+            self.compute_SPs()
+            self.k_shortest_path()
+        else:
+            self.compute_middlepoint_set_remove_rep_actions_no_loop()
 
     def step(self, action, demand, source, destination):
         # Action is the middlepoint. Careful because it can also be action==destination if src,dst are connected directly by an edge
         self.episode_over = False
         self.reward = 0
 
-        # We get the K-middlepoints between source-destination
-        middlePointList = self.src_dst_k_middlepoints[str(source) +':'+ str(destination)]
-        middlePoint = middlePointList[action]
+        kp = None
+        if self.use_K_path:
+            kp = action
+            self.sp_pathk[str(source)+':'+str(destination)] = kp
+            middlePoint = destination
+        else:
+            # We get the K-middlepoints between source-destination
+            middlePointList = self.src_dst_k_middlepoints[str(source) + ':' + str(destination)]
+            middlePoint = middlePointList[action]
 
         # First we allocate until the middlepoint
-        self.allocate_to_destination_sp(source, middlePoint, source, destination)
+        self.allocate_to_destination_sp(source, middlePoint, source, destination, kp)
         # If we allocated to a middlepoint that is not the final destination
         if middlePoint!=destination:
             # Then we allocate from the middlepoint to the destination
@@ -596,22 +628,31 @@ class Env16(gym.Env):
             self.sp_middlepoints[str(source)+':'+str(destination)] = middlePoint
         
         self.sp_middlepoints_step = self.sp_middlepoints
+        if self.use_K_path:
+            self.sp_middlepoints_step = self.sp_pathk
         
         # Find new maximum and minimum utilization link
         old_Utilization = self.edgeMaxUti[2]
+        old_Utilization_std = self.edgeStdUti
         self.edgeMaxUti = (0, 0, 0)
+        self.edgeStdUti = 0
+        uti_list = []
         for i in self.graph:
             for j in self.graph[i]:
                 position = self.edgesDict[str(i)+':'+str(j)]
                 self.edge_state[position][0] = self.graph[i][j][0]['utilization']
                 link_capacity = self.links_bw[i][j]
                 norm_edge_state_capacity = self.edge_state[position][0]/link_capacity
+                uti_list.append(norm_edge_state_capacity)
                 if norm_edge_state_capacity>self.edgeMaxUti[2]:
                     self.edgeMaxUti = (i, j, norm_edge_state_capacity)
          
         self.currentVal = -self.edgeMaxUti[2]
 
+        self.edgeStdUti = np.std(uti_list)
         self.reward = np.around((old_Utilization-self.edgeMaxUti[2])*10,2)
+        #self.reward = np.around(10*(0.8*(old_Utilization-self.edgeMaxUti[2]) + 0.2*(old_Utilization_std-self.edgeStdUti)), 3)
+        #self.reward = np.around((10*(old_Utilization-self.edgeMaxUti[2])-np.std(uti_list)/10), 3)
 
         # If we didn't iterate over all demands 
         if self.iter_list_elig_demn<len(self.list_eligible_demands):
@@ -635,9 +676,9 @@ class Env16(gym.Env):
         # We desmark the bw_allocated
         self.edge_state[:,2] = 0
 
-        return self.reward, self.episode_over, 0.0, self.TM[self.patMaxBandwth[0]][self.patMaxBandwth[1]], self.patMaxBandwth[0], self.patMaxBandwth[1], self.edgeMaxUti, 0.0, np.std(self.edge_state[:,0])
+        return self.reward, self.episode_over, 10*(old_Utilization-self.edgeMaxUti[2]), self.TM[self.patMaxBandwth[0]][self.patMaxBandwth[1]], self.patMaxBandwth[0], self.patMaxBandwth[1], self.edgeMaxUti, 10*(old_Utilization_std-self.edgeStdUti), np.std(self.edge_state[:,0])
 
-    def reset(self, tm_id):
+    def reset(self, tm_id, best_routing=None):
         """
         Reset environment and setup for new episode. 
         Generate new TM but load the same routing. We remove the path with more bandwidth
@@ -646,14 +687,24 @@ class Env16(gym.Env):
         self._generate_tm(tm_id)
 
         self.sp_middlepoints = dict()
+        self.sp_pathk = dict()
 
         # For each link we store the total sum of bandwidths of the paths crossing each link without middlepoints
         self.compute_link_utilization_reset()
+
+        if best_routing is not None:
+            for key, kp in best_routing.items():
+                source = int(key.split(':')[0])
+                dest = int(key.split(':')[1])
+                self.decrease_links_utilization_sp(source, dest, source, dest)
+                self.allocate_to_destination_sp(source, dest, source, dest, kp)
+            self.sp_pathk = best_routing
 
         # We iterate over all links in an ordered fashion and store the features to edge_state
         self.edgeMaxUti = (0, 0, 0)
         # This list is used to obtain the top K flows from the critical links
         list_link_uti_id = list()
+        uti_list = []
         for i in self.graph:
             for j in self.graph[i]:
                 position = self.edgesDict[str(i)+':'+str(j)]
@@ -664,8 +715,10 @@ class Env16(gym.Env):
                 list_link_uti_id.append((self.edge_state[position][0], i, j))
                 
                 norm_edge_state_capacity = self.edge_state[position][0]/link_capacity
+                uti_list.append(norm_edge_state_capacity)
                 if norm_edge_state_capacity>self.edgeMaxUti[2]:
                     self.edgeMaxUti = (i, j, norm_edge_state_capacity)
+        self.edgeStdUti = np.std(uti_list)
         
         if self.top_K_critical_demands:
             list_link_uti_id = sorted(list_link_uti_id, key=lambda tup: tup[0], reverse=True)[:self.num_critical_links]
@@ -687,11 +740,14 @@ class Env16(gym.Env):
 
         return self.TM[self.patMaxBandwth[0]][self.patMaxBandwth[1]], self.patMaxBandwth[0], self.patMaxBandwth[1]
             
-    def allocate_to_destination_sp(self, src, dst, init_source, final_destination): 
+    def allocate_to_destination_sp(self, src, dst, init_source, final_destination, kp=None):
         # In this function we allocated the bandwidth by segments. This funcion is used when we want
         # to allocate from a src to a middlepoint and then from middlepoint to a dst using the sp
         bw_allocate = self.TM[init_source][final_destination]
         currentPath = self.shortest_paths[src,dst]
+
+        if kp != None:
+            currentPath = self.allPaths[str(init_source)+':'+str(final_destination)][kp]
         
         i = 0
         j = 1
@@ -706,10 +762,12 @@ class Env16(gym.Env):
             i = i + 1
             j = j + 1
     
-    def mark_action_sp(self, src, dst, init_source, final_destination): 
+    def mark_action_sp(self, src, dst, init_source, final_destination, kp=None): 
         # In this function we mark the action in the corresponding edges of the SP between src,dst
         bw_allocate = self.TM[init_source][final_destination]
         currentPath = self.shortest_paths[src,dst]
+        if self.use_K_path == True:
+            currentPath = self.allPaths[str(init_source)+':'+str(final_destination)][kp]
         
         i = 0
         j = 1

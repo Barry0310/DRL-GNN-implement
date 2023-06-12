@@ -22,11 +22,13 @@ if __name__ == '__main__':
     torch.cuda.manual_seed_all(1)
     torch.backends.cudnn.benchmark = False
     torch.backends.cudnn.deterministic = True
-    experiment_letter = "_B_PATH_LINK_TEST"
+    experiment_letter = "_B_PATH_LINK_TEST_kp"
     take_critic_demands = True  # True if we want to take the demands from the most critical links, True if we want to take the largest
     percentage_demands = 15  # Percentage of demands that will be used in the optimization
     str_perctg_demands = str(percentage_demands)
     percentage_demands /= 100
+    NUM_ACTIONS = 20
+    K_path = True
 
     max_iters = 150
     EVALUATION_EPISODES = 20  # As the demand selection is deterministic, it doesn't make sense to evaluate multiple times over the same TM
@@ -78,34 +80,40 @@ if __name__ == '__main__':
 
     env_training1 = gym.make(ENV_NAME)
     env_training1.seed(SEED)
-    env_training1.generate_environment(dataset_folder_name1 + "/TRAIN", "BtAsiaPac", 0, 100, percentage_demands)
+    env_training1.use_K_path = K_path
+    env_training1.generate_environment(dataset_folder_name1 + "/TRAIN", "BtAsiaPac", 0, NUM_ACTIONS, percentage_demands)
     env_training1.top_K_critical_demands = take_critic_demands
 
     env_training2 = gym.make(ENV_NAME)
     env_training2.seed(SEED)
-    env_training2.generate_environment(dataset_folder_name2 + "/TRAIN", "Garr199905", 0, 100, percentage_demands)
+    env_training2.use_K_path = K_path
+    env_training2.generate_environment(dataset_folder_name2 + "/TRAIN", "Garr199905", 0, NUM_ACTIONS, percentage_demands)
     env_training2.top_K_critical_demands = take_critic_demands
 
     env_training3 = gym.make(ENV_NAME)
     env_training3.seed(SEED)
-    env_training3.generate_environment(dataset_folder_name3 + "/TRAIN", "Goodnet", 0, 100, percentage_demands)
+    env_training3.use_K_path = K_path
+    env_training3.generate_environment(dataset_folder_name3 + "/TRAIN", "Goodnet", 0, NUM_ACTIONS, percentage_demands)
     env_training3.top_K_critical_demands = take_critic_demands
 
     env_training = [env_training1, env_training2, env_training3]
 
     env_eval1 = gym.make(ENV_NAME)
     env_eval1.seed(SEED)
-    env_eval1.generate_environment(dataset_folder_name1 + "/EVALUATE", "BtAsiaPac", 0, 100, percentage_demands)
+    env_eval1.use_K_path = K_path
+    env_eval1.generate_environment(dataset_folder_name1 + "/EVALUATE", "BtAsiaPac", 0, NUM_ACTIONS, percentage_demands)
     env_eval1.top_K_critical_demands = take_critic_demands
 
     env_eval2 = gym.make(ENV_NAME)
     env_eval2.seed(SEED)
-    env_eval2.generate_environment(dataset_folder_name2 + "/EVALUATE", "Garr199905", 0, 100, percentage_demands)
+    env_eval2.use_K_path = K_path
+    env_eval2.generate_environment(dataset_folder_name2 + "/EVALUATE", "Garr199905", 0, NUM_ACTIONS, percentage_demands)
     env_eval2.top_K_critical_demands = take_critic_demands
 
     env_eval3 = gym.make(ENV_NAME)
     env_eval3.seed(SEED)
-    env_eval3.generate_environment(dataset_folder_name3 + "/EVALUATE", "Goodnet", 0, 100, percentage_demands)
+    env_eval3.use_K_path = K_path
+    env_eval3.generate_environment(dataset_folder_name3 + "/EVALUATE", "Goodnet", 0, NUM_ACTIONS, percentage_demands)
     env_eval3.top_K_critical_demands = take_critic_demands
 
     env_eval = [env_eval1, env_eval2, env_eval3]
@@ -113,6 +121,8 @@ if __name__ == '__main__':
     counter_store_model = 0
     max_reward = -1000
     AC_policy = PPOAC(hyper_parameter)
+    if K_path:
+        AC_policy.K_path = NUM_ACTIONS
     for iters in range(100):
 
         if iters * hyper_parameter['episode'] >= hyper_parameter['entropy_step']:
@@ -201,6 +211,8 @@ if __name__ == '__main__':
                 for tm_id in range(EVALUATION_EPISODES):
                     demand, src, dst = env_eval[topo].reset(tm_id=tm_id)
                     total_reward = 0
+                    total_max_link = 0
+                    total_std_link = 0
                     posi = EVALUATION_EPISODES * topo + tm_id
                     while True:
                         action_dist, _ = AC_policy.predict(env_eval[topo], src, dst)
@@ -210,12 +222,14 @@ if __name__ == '__main__':
                             env_eval[topo].step(action, demand, src, dst)
 
                         total_reward += reward
+                        total_max_link += error_eval_links
+                        total_std_link += min_link_uti
                         if done:
                             break
                     rewards_test[posi] = total_reward
-                    error_links[posi] = error_eval_links
+                    error_links[posi] = total_max_link
                     max_link_utis[posi] = max_link_uti[2]
-                    min_link_utis[posi] = min_link_uti
+                    min_link_utis[posi] = total_std_link
                     uti_stds[posi] = uti_std
 
             timer_b = time.time()
@@ -224,7 +238,7 @@ if __name__ == '__main__':
             fileLogs.write(";," + str(np.mean(uti_stds)) + ",\n")
             fileLogs.write("+," + str(np.mean(error_links)) + ",\n")
             fileLogs.write("<," + str(np.amax(max_link_utis)) + ",\n")
-            fileLogs.write(">," + str(np.amax(min_link_utis)) + ",\n")
+            fileLogs.write(">," + str(np.mean(min_link_utis)) + ",\n")
             fileLogs.write("ENTR," + str(AC_policy.entropy_beta) + ",\n")
             fileLogs.write("REW," + str(eval_mean_reward) + ",\n")
             fileLogs.write("lr," + str(AC_policy.scheduler.get_last_lr()[0]) + ",\n")

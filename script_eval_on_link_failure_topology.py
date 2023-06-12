@@ -1,21 +1,24 @@
 import numpy as np
 import gym
 import os
-import json
+import gc
 import gym_graph
+import networkx as nx
 import random
+import matplotlib.pyplot as plt
 import argparse
 import time as tt
 import torch
+from actor_critic import PPOAC
+import pandas as pd
+from collections import Counter
 import pickle
 import sys
-from actor_critic import PPOAC
+from scipy.stats import entropy
 sys.setrecursionlimit(2000)
 
 # This script is used to evaluate a DRL agent on a single instance of a topology and a TM 
-# from the repetita dataset. The eval_on_single_topology.py script calls this script for each TM
-
-# os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+# from the repetita dataset. The eval_on_zoo_topologies.py script calls this one in every process
 
 ENV_MIDDROUT_AGENT_SP = 'GraphEnv-v16'
 ENV_SIMM_ANEAL_AGENT = 'GraphEnv-v15'
@@ -28,7 +31,6 @@ percentage_demands /= 100
 
 os.environ['PYTHONHASHSEED']=str(SEED)
 np.random.seed(SEED)
-torch.manual_seed(1)
 
 # Indicates how many time-steps has an episode
 EPISODE_LENGTH_MIDDROUT = 100
@@ -37,33 +39,28 @@ KP = True
 
 MAX_NUM_EDGES = 100
 
-def play_middRout_games_sp(tm_id, env_middRout_sp, agent, timesteps, best=None):
-    demand, source, destination = env_middRout_sp.reset(tm_id, best)
-    rewardAddTest = 0
 
+def play_middRout_games_sp(tm_id, env_middRout_sp, agent):
+    demand, source, destination = env_middRout_sp.reset(tm_id)
+    rewardAddTest = 0
     initMaxUti = env_middRout_sp.edgeMaxUti[2]
     OSPF_init = initMaxUti
     best_routing = env_middRout_sp.sp_middlepoints_step.copy()
-
     list_of_demands_to_change = env_middRout_sp.list_eligible_demands
-    timesteps.append((0, initMaxUti))
-
     start = tt.time()
-    time_start_DRL = start
     while 1:
         action_dist, tensor = agent.predict(env_middRout_sp, source, destination)
-        action = torch.argmax(action_dist)
+        action = torch.argmax(action_dist.detach())
         
         reward, done, error_eval_links, demand, source, destination, maxLinkUti, minLinkUti, utiStd = env_middRout_sp.step(action, demand, source, destination)
         rewardAddTest += reward
         if maxLinkUti[2]<initMaxUti:
             initMaxUti = maxLinkUti[2]
             best_routing = env_middRout_sp.sp_middlepoints_step.copy()
-            timesteps.append((tt.time()-time_start_DRL, initMaxUti))
         if done:
             break
     end = tt.time()
-    return initMaxUti, end-start, OSPF_init, best_routing, list_of_demands_to_change, time_start_DRL
+    return initMaxUti, end-start, OSPF_init, best_routing, list_of_demands_to_change
 
 class SIMULATED_ANNEALING_SP:
     def __init__(self, env):
@@ -412,7 +409,7 @@ def play_sp_hill_climbing_games(tm_id):
     end = tt.time()
     return currentVal*(-1), end-start
 
-def play_DRL_GNN_sp_hill_climbing_games(tm_id, best_routing, list_of_demands_to_change, timesteps, time_start_DRL):
+def play_DRL_GNN_sp_hill_climbing_games(tm_id, best_routing, list_of_demands_to_change):
     # Here we use sp in hill climbing to select the middlepoint and to evaluate
     env_hill_climb = gym.make(ENV_SIMM_ANEAL_AGENT)
     env_hill_climb.seed(SEED)
@@ -445,13 +442,10 @@ def play_DRL_GNN_sp_hill_climbing_games(tm_id, best_routing, list_of_demands_to_
         
         # We apply the new chosen action to the selected demand
         currentVal = env_hill_climb.step_hill_sp(action, source, dest)
-        timer = tt.time()
-        timesteps.append((timer-time_start_DRL, currentVal*(-1)))
     end = tt.time()
     return currentVal*(-1), end-start
 
-
-def play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change, timesteps, time_start_DRL):
+def play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change):
     # Here we use sp in hill climbing to select the middlepoint and to evaluate
     env_hill_climb = gym.make(ENV_SIMM_ANEAL_AGENT)
     env_hill_climb.seed(SEED)
@@ -478,8 +472,6 @@ def play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_
 
         # We apply the new chosen action to the selected demand
         currentVal = env_hill_climb.step_hill_sp(action, source, dest)
-        timer = tt.time()
-        timesteps.append((timer - time_start_DRL, currentVal * (-1)))
     end = tt.time()
     return currentVal * (-1), end - start
 
@@ -536,7 +528,7 @@ def play_middRout_games(tm_id, env_middRout, agent):
     rewardAddTest = 0
     while 1:
         # Change to agent.pred_action_node_distrib_sp to choose the middlepoint using only the SPs
-        action_dist, tensor = agent.pred_action_node_distrib_sp(env_middRout, source, destination)
+        action_dist, tensor = agent.predict(env_middRout, source, destination)
         action = np.argmax(action_dist)
         
         reward, done, error_eval_links, demand, source, destination, maxLinkUti, minLinkUti, utiStd = env_middRout.step(action, demand, source, destination)
@@ -545,8 +537,52 @@ def play_middRout_games(tm_id, env_middRout, agent):
             break
     return rewardAddTest, maxLinkUti[2], minLinkUti, utiStd
 
+def read_max_load_link(standard_out_file):
+    pre_optim_max_load_link, post_optim_max_load_link = 0, 0
+    with open(standard_out_file) as fd:
+        while (True):
+            line = fd.readline()
+            if line.startswith("pre-optimization"):
+                camps = line.split(" ")
+                pre_optim_max_load_link = float(camps[-1].split('\n')[0])
+            elif line.startswith("post-optimization"):
+                camps = line.split(" ")
+                post_optim_max_load_link = float(camps[-1].split('\n')[0])
+                break
+        return (pre_optim_max_load_link, post_optim_max_load_link)
 
 if __name__ == "__main__":
+    # Parse logs and get best model
+    parser = argparse.ArgumentParser(description='Parse file and create plots')
+
+    parser.add_argument('-t', help='DEFO demands TM file id', type=str, required=True, nargs='+')
+    parser.add_argument('-g', help='graph topology name', type=str, required=True, nargs='+')
+    parser.add_argument('-m', help='model id', type=str, required=True, nargs='+')
+    parser.add_argument('-o', help='Where to store the pckl file', type=str, required=True, nargs='+')
+    parser.add_argument('-d', help='differentiation string', type=str, required=True, nargs='+')
+    parser.add_argument('-f', help='general dataset folder name', type=str, required=True, nargs='+')
+    # This second parameter we only use it if we want to show DEFO results
+    args = parser.parse_args()
+
+    drl_eval_res_folder = args.o[0]
+    tm_id = int(args.t[0])
+    model_id = args.m[0]
+    differentiation_str = args.d[0]
+    graph_topology_name = args.g[0]
+    general_dataset_folder = args.f[0]
+    scenario = drl_eval_res_folder.split('-')[1]
+
+    defo_stnd_out_file = "../Enero_datasets/DEFOResults/"+scenario+graph_topology_name+"/standard_out_"+graph_topology_name+"_"+str(tm_id)
+    results = np.zeros(17)
+
+    K_path = KP
+    K = NUM_ACTIONS
+    ########### The following lines of code is to evaluate a DRL SP-based agent
+    env_DRL_SP = gym.make(ENV_MIDDROUT_AGENT_SP)
+    env_DRL_SP.seed(SEED)
+    env_DRL_SP.use_K_path = K_path
+    env_DRL_SP.generate_environment(general_dataset_folder, graph_topology_name, EPISODE_LENGTH_MIDDROUT, NUM_ACTIONS, percentage_demands)
+    env_DRL_SP.top_K_critical_demands = True
 
     hyper_parameter = {
         'feature_size': 20,
@@ -567,48 +603,12 @@ if __name__ == "__main__":
         'update_times': 8
     }
 
-    # Parse logs and get best model
-    parser = argparse.ArgumentParser(description='Parse file and create plots')
-
-    parser.add_argument('-t', help='DEFO demands TM file id', type=str, required=True, nargs='+')
-    parser.add_argument('-g', help='graph topology name', type=str, required=True, nargs='+')
-    parser.add_argument('-m', help='model id whose weights to load', type=str, required=True, nargs='+')
-    parser.add_argument('-o', help='Where to store the pckl file', type=str, required=True, nargs='+')
-    parser.add_argument('-d', help='differentiation string', type=str, required=True, nargs='+')
-    parser.add_argument('-f', help='general dataset folder name', type=str, required=True, nargs='+')
-    parser.add_argument('-f2', help='specific dataset folder name', type=str, required=True, nargs='+')
-    args = parser.parse_args()
-
-    drl_eval_res_folder = args.o[0]
-    tm_id = int(args.t[0])
-    model_id = args.m[0]
-    differentiation_str = args.d[0]
-    graph_topology_name = args.g[0]
-    general_dataset_folder = args.f[0]
-    specific_dataset_folder = args.f2[0]
-
-    timesteps = list()
-    results = np.zeros(17)
-
-    K_path = KP
-    K = NUM_ACTIONS
-    ########### The following lines of code is to evaluate a DRL SP-based agent
-    env_DRL_SP = gym.make(ENV_MIDDROUT_AGENT_SP)
-    env_DRL_SP.seed(SEED)
-    env_DRL_SP.use_K_path = K_path
-    env_DRL_SP.generate_environment(general_dataset_folder, graph_topology_name, EPISODE_LENGTH_MIDDROUT, K, percentage_demands)
-    # Set to True f we want to take the top X% of the 5 most loaded links
-    env_DRL_SP.top_K_critical_demands = True
-
     DRL_SP_Agent = PPOAC(hyper_parameter)
     if K_path:
         DRL_SP_Agent.K_path = K
     model_dir = "./models" + differentiation_str
-    #model_id = 'final'
     DRL_SP_Agent.actor.load_state_dict(torch.load(model_dir + f"/actor_{model_id}.pt"))
-    DRL_SP_Agent.actor.eval()
-    # Restore variables on creation if a checkpoint exists.
-    print("Restored DRL_SP model ", f"/actor_{model_id}.pt")
+    print("Restored DRL_SP model ", "/actor_" + str(model_id))
 
     ################################################
 
@@ -617,18 +617,13 @@ if __name__ == "__main__":
     
     max_link_uti_sp_hill_climb, optim_cost_HILL = 1,1 #play_sp_hill_climbing_games(tm_id)
     
-    max_link_uti_SAP, optim_cost_SAP = 1, 1 #play_sap_games(tm_id)
+    max_link_uti_SAP, optim_cost_SAP = 1,1 #play_sap_games(tm_id)
     
-    max_link_uti_DRL_SP, optim_cost_DRL_GNN, OSPF_init, best_routing, list_of_demands_to_change, time_start_DRL = play_middRout_games_sp(tm_id, env_DRL_SP, DRL_SP_Agent, timesteps)
+    max_link_uti_DRL_SP, optim_cost_DRL_GNN, OSPF_init, best_routing, list_of_demands_to_change = play_middRout_games_sp(tm_id, env_DRL_SP, DRL_SP_Agent)
     
-    max_link_uti_DRL_SP_HILL, optim_cost_DRL_HILL = play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change, timesteps, time_start_DRL)
+    max_link_uti_DRL_SP_HILL, optim_cost_DRL_HILL = play_DRL_GNN_sp_hill_climbing_games_kp(tm_id, best_routing, list_of_demands_to_change)
 
-    new_timesteps = list()
-    for elem in timesteps:
-        new_timesteps.append((elem[0], elem[1], time_start_DRL, max_link_uti_DRL_SP))
-
-    print("MAX UTI abans i despres d'optimitzar: ", OSPF_init, max_link_uti_DRL_SP, max_link_uti_DRL_SP_HILL, tm_id)
-
+    results[1] = read_max_load_link(defo_stnd_out_file)[1] # Store defoCP maximum loaded link
     results[3] = max_link_uti_DRL_SP_HILL 
     results[4] = max_link_uti_sim_annealing
     results[6] = len(env_DRL_SP.defoDatasetAPI.Gbase.edges()) # We store the number of edges to order the figures
@@ -648,6 +643,3 @@ if __name__ == "__main__":
 
     with open(path_to_pckl_rewards + graph_topology_name +'.' + str(tm_id) + ".pckl", 'wb') as f:
         pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)
-    
-    with open(path_to_pckl_rewards + graph_topology_name +'.' + str(tm_id) + ".timesteps", 'w') as fp:
-        json.dump(new_timesteps, fp)

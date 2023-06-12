@@ -29,11 +29,18 @@ class PPOAC:
         self.device = device if device else torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.actor.to(self.device)
         self.critic.to(self.device)
+        
+        self.K_path = 0
 
     def predict(self, env, src, dst):
         list_k_features = []
+        middle_point_list = []
+        
+        if self.K_path > 0:
+            middle_point_list = range(self.K_path)
+        else:
+            middle_point_list = env.src_dst_k_middlepoints[str(src) + ':' + str(dst)]
 
-        middle_point_list = env.src_dst_k_middlepoints[str(src) + ':' + str(dst)]
         for mid in range(len(middle_point_list)):
             features = self.actor_get_graph_features(env, src, dst, middle_point_list[mid])
             list_k_features.append(features)
@@ -85,16 +92,31 @@ class PPOAC:
             i = i + 1
             j = j + 1
         return path
+        
+    def get_path_K(self, env, src, dst, k):
+        path = []
+        current_path = env.allPaths[str(src)+':'+str(dst)][k]
+        i = 0
+        j = 1
+        while j < len(current_path):
+            path.append(env.edgesDict[str(current_path[i]) + ':' + str(current_path[j])])
+            i = i + 1
+            j = j + 1
+        return path
 
     def actor_get_graph_features(self, env, src, dst, mid):
         temp = {
-            'path': self.get_path(env, src, mid),
+            'path': [],
             'demand': [env.TM[src][dst]],
             'link_capacity': env.edge_state[:, 1],
         }
 
-        if mid != dst:
-            temp['path'] = temp['path'] + self.get_path(env, mid, dst)
+        if self.K_path > 0:
+            temp['path'] = self.get_path_K(env, src, dst, mid)
+        else:
+            temp['path'] = self.get_path(env, src, mid)
+            if mid != dst:
+                temp['path'] = temp['path'] + self.get_path(env, mid, dst)
 
         temp['demand'][0] = temp['demand'][0] / min(temp['link_capacity'][temp['path']])
 
